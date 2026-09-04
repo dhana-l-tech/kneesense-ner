@@ -1,9 +1,19 @@
 /*
-  KneeSense NER — ESP32 firmware (single-sensor mode)
+  KneeSense NER — ESP32 firmware (single-sensor mode, MPU6050 only)
 
   One MPU6050 (shin-mounted) -> complementary filter -> knee angle stream
   over BLE. Matches the app-side protocol in src/lib/bleProtocol.ts — if you
   change the UUIDs or the payload layout, update both sides.
+
+  No calibration button, RGB LED, buzzer, or vibration motor on this board —
+  just the MPU6050. That means there is NO on-device physical feedback at
+  all: calibration is triggered only over BLE (the app's "Calibrate" button
+  on SensorPairingPage sends CMD_CALIBRATE — this always worked over BLE
+  too, so nothing is lost there), and the only status indicators are the
+  Serial Monitor (wiring/boot problems) and the app's own UI (connection
+  state, calibration state, and the error popups it already shows for
+  BLE failures). If you add any of that hardware back later, wire it in
+  parallel to this file's BLE/sensor logic — it never touched the protocol.
 
   Single-sensor convention: the thigh is assumed to stay still during the
   seated knee-extension test (it rests on the chair), so the app treats the
@@ -22,30 +32,13 @@
   WIRING
   ---------------------------------------------------------------------
   ESP32 3.3V   -> MPU6050 VCC
-  ESP32 GND    -> MPU6050 GND, buzzer -, LED cathode(s), transistor
-                  emitter, calibration button's pull-down leg
+  ESP32 GND    -> MPU6050 GND
   ESP32 GPIO21 -> MPU6050 SDA
   ESP32 GPIO22 -> MPU6050 SCL
 
   MPU6050: AD0 -> GND (I2C address 0x68), strapped to the outer shin,
     8-12cm below the knee, pointing toward the hip (same orientation the
     app's pairing screen instructs for a patient).
-
-  Calibration button: one leg -> 3.3V, other leg -> GPIO4 AND -> 10k
-    resistor -> GND (external pull-down; button press reads HIGH)
-
-  RGB LED (common cathode): R -> 220ohm -> GPIO25, G -> 220ohm -> GPIO26,
-    B -> 220ohm -> GPIO27, cathode -> GND
-
-  Active buzzer: + -> GPIO32, - -> GND
-
-  Vibration motor (needs a transistor — never drive a motor from a GPIO
-  directly): GPIO33 -> 1k resistor -> transistor base (2N2222/BC547) ->
-    transistor emitter -> GND, transistor collector -> motor -,
-    motor + -> 3.3V (or 5V from the power bank if the motor needs it),
-    1N4001/1N4007 flyback diode across the motor terminals (cathode/banded
-    end to motor +, anode to motor -) to protect the transistor from the
-    motor's back-EMF when it switches off.
 
   ---------------------------------------------------------------------
   LIBRARIES (install via Arduino IDE Library Manager)
@@ -66,12 +59,6 @@
 // ---------------- Pins ----------------
 const int PIN_SDA = 21;
 const int PIN_SCL = 22;
-const int PIN_CALIBRATE_BTN = 4;
-const int PIN_LED_R = 25;
-const int PIN_LED_G = 26;
-const int PIN_LED_B = 27;
-const int PIN_BUZZER = 32;
-const int PIN_MOTOR = 33;
 
 // ---------------- I2C address ----------------
 const uint8_t MPU_ADDR = 0x68; // AD0 -> GND
@@ -110,26 +97,6 @@ BLECharacteristic *controlChar;
 BLECharacteristic *statusChar;
 bool deviceConnected = false;
 bool streaming = false;
-
-// ---------------- Feedback helpers ----------------
-
-void setColor(bool r, bool g, bool b) {
-  digitalWrite(PIN_LED_R, r ? HIGH : LOW);
-  digitalWrite(PIN_LED_G, g ? HIGH : LOW);
-  digitalWrite(PIN_LED_B, b ? HIGH : LOW);
-}
-
-void beep(int ms) {
-  digitalWrite(PIN_BUZZER, HIGH);
-  delay(ms);
-  digitalWrite(PIN_BUZZER, LOW);
-}
-
-void buzzVibrate(int ms) {
-  digitalWrite(PIN_MOTOR, HIGH);
-  delay(ms);
-  digitalWrite(PIN_MOTOR, LOW);
-}
 
 // ---------------- MPU6050 direct register access ----------------
 // Talks to the MPU6050 directly over Wire per its register map, instead of
@@ -177,10 +144,10 @@ uint8_t mpuReadReg(uint8_t reg) {
 }
 
 // Same "did the sensor actually respond" check Adafruit_MPU6050's begin()
-// did (WHO_AM_I must read back 0x68) — kept so sensorOk / the solid-red
-// "sensor not found" LED behavior still works without it. Also wakes the
-// chip (it boots with the sleep bit set in PWR_MGMT_1) and configures the
-// same ranges/filter the Adafruit library used to.
+// did (WHO_AM_I must read back 0x68) — kept so sensorOk / the Serial "not
+// found" message still work. Also wakes the chip (it boots with the sleep
+// bit set in PWR_MGMT_1) and configures the same ranges/filter the
+// Adafruit library used to.
 bool mpuBegin() {
   if (mpuReadReg(MPU_REG_WHO_AM_I) != 0x68) return false;
   mpuWriteReg(MPU_REG_PWR_MGMT_1, 0x00);   // clear sleep bit
@@ -224,7 +191,7 @@ ImuSample mpuReadSample() {
 // side-strapped sensor rotates around during knee flexion/extension.
 // If your sensor is mounted with a different face outward, you may need
 // to swap which accel axis feeds this (and the matching gyro axis below)
-// — check with the calibration LED + a slow known motion.
+// — check with a slow known motion via Serial or the app's live angle.
 float accelPitchDeg(const ImuSample &a) {
   return atan2(a.accelY, sqrt(a.accelX * a.accelX + a.accelZ * a.accelZ)) * 180.0 / PI;
 }
@@ -235,9 +202,11 @@ float accelPitchDeg(const ImuSample &a) {
 // it doesn't integrate a slow drift over a multi-minute screening session.
 // MUST be run with the leg fully extended — the app computes knee angle
 // directly from this sensor's angle, so whatever pose it's calibrated in
-// becomes "0 degrees" for the rest of the capture.
+// becomes "0 degrees" for the rest of the capture. Only triggered over BLE
+// (CMD_CALIBRATE, via the app's Calibrate button) — there's no physical
+// button on this board.
 void calibrate() {
-  setColor(true, false, false); // red = calibrating, don't move
+  Serial.println("Calibrating — hold the leg straight and still...");
   const int N = 100;
   float angleSum = 0;
   float gyroSum = 0;
@@ -253,9 +222,7 @@ void calibrate() {
   gyroBiasRadS = gyroSum / N;
   lastSampleMicros = micros();
 
-  setColor(false, true, false); // green = calibrated / ready
-  beep(150);
-  buzzVibrate(150);
+  Serial.println("Calibrated.");
 }
 
 // ---------------- BLE callbacks ----------------
@@ -263,12 +230,10 @@ void calibrate() {
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer *server) override {
     deviceConnected = true;
-    setColor(false, false, true); // blue = connected
   }
   void onDisconnect(BLEServer *server) override {
     deviceConnected = false;
     streaming = false;
-    setColor(false, true, false);
     server->getAdvertising()->start(); // resume advertising so the app can reconnect
   }
 };
@@ -336,36 +301,21 @@ void setup() {
 
   Wire.begin(PIN_SDA, PIN_SCL);
 
-  pinMode(PIN_CALIBRATE_BTN, INPUT); // external pull-down — see wiring notes
-  pinMode(PIN_LED_R, OUTPUT);
-  pinMode(PIN_LED_G, OUTPUT);
-  pinMode(PIN_LED_B, OUTPUT);
-  pinMode(PIN_BUZZER, OUTPUT);
-  pinMode(PIN_MOTOR, OUTPUT);
-  setColor(false, false, true); // blue = starting up
-
   sensorOk = mpuBegin();
   if (!sensorOk) {
-    // Solid red = the sensor didn't respond. Fix wiring and reset the board.
     Serial.println("MPU6050 (0x68) not found — check wiring/AD0");
-    setColor(true, false, false);
+  } else {
+    Serial.println("MPU6050 found and configured.");
   }
 
   setupBle();
 
   if (sensorOk) {
-    calibrate(); // initial calibration (leg must be straight); re-run any time via the button or a BLE 0x01 command
+    calibrate(); // initial calibration (leg must be straight); re-run any time via a BLE 0x01 command
   }
 }
 
 void loop() {
-  static bool lastBtn = LOW;
-  bool btn = digitalRead(PIN_CALIBRATE_BTN);
-  if (btn == HIGH && lastBtn == LOW && sensorOk) {
-    calibrate();
-  }
-  lastBtn = btn;
-
   if (!streaming || !deviceConnected || !sensorOk) return;
 
   unsigned long now = micros();

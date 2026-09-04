@@ -1,6 +1,6 @@
 # KneeSense NER — ESP32 firmware
 
-Streams a shin orientation angle over BLE to the app (single-sensor mode — one MPU6050, shin-mounted; the earlier two-sensor thigh+shin design was dropped). See the wiring diagram and pin notes at the top of [`kneesense_esp32/kneesense_esp32.ino`](kneesense_esp32/kneesense_esp32.ino) — that file is the source of truth for wiring, not this README.
+Streams a shin orientation angle over BLE to the app (single-sensor mode — one MPU6050, shin-mounted; the earlier two-sensor thigh+shin design was dropped). **This board is MPU6050-only** — no calibration button, RGB LED, buzzer, or vibration motor; calibration is triggered purely over BLE (the app's own "Calibrate" button), and the app's UI is the only status/error feedback there is (no on-device LED to watch). See the wiring diagram and pin notes at the top of [`kneesense_esp32/kneesense_esp32.ino`](kneesense_esp32/kneesense_esp32.ino) — that file is the source of truth for wiring, not this README.
 
 **Not compiled/flashed in this session** — there's no Arduino toolchain available here, so this needs to be verified on your machine before trusting it on real hardware.
 
@@ -13,17 +13,19 @@ Streams a shin orientation angle over BLE to the app (single-sensor mode — one
 5. Upload, then open the Serial Monitor at **115200 baud** — it'll print an error if the sensor isn't found at its expected I2C address (a wiring/AD0 check).
 6. **Calibrate with the leg fully straight.** In single-sensor mode the app computes knee angle directly from this one sensor's angle relative to whatever pose it was calibrated in — see "Single-sensor mode" below.
 
-## Expected LED behavior
+## Status feedback (no LED — Serial Monitor + the app only)
 
-- **Blue** — booting
-- **Solid red** (stays on) — a sensor didn't respond at startup; check wiring/AD0 before continuing
-- **Red, briefly** — calibrating (keep the leg still)
-- **Green** — calibrated and idle
-- **Blue, solid** — a phone/app is connected over BLE
+With no RGB LED on this board, boot/wiring/calibration status is Serial-only:
+- `"MPU6050 found and configured."` — sensor responded, ranges/filter set
+- `"MPU6050 (0x68) not found — check wiring/AD0"` — sensor didn't respond; nothing will stream until this is fixed and the board is reset
+- `"Calibrating — hold the leg straight and still..."` then `"Calibrated."` — bracket a calibration run (100 samples, ~1 second)
+- The brownout message described in "Low-power detection" below, if applicable
+
+Beyond the Serial Monitor, the app's own UI is the only feedback available in the field — connection state and calibration state on `SensorPairingPage`, and the `ErrorModal` popups for any BLE failure (not connected, disconnected mid-capture, etc.). There is no physical indicator to glance at.
 
 ## Testing without the app
 
-The Serial Monitor only prints a sensor-not-found error right now. To sanity-check the IMU readings independently before involving BLE at all, temporarily add a `Serial.print`/`println` call for `shinAngle` in `loop()` — that's the fastest way to confirm the complementary filter looks reasonable (near 0 right after calibrating with the leg straight, increasing smoothly as the knee bends) before debugging anything at the BLE layer.
+The Serial Monitor only prints the messages above right now. To sanity-check the IMU readings independently before involving BLE at all, temporarily add a `Serial.print`/`println` call for `shinAngle` in `loop()` — that's the fastest way to confirm the complementary filter looks reasonable (near 0 right after calibrating with the leg straight, increasing smoothly as the knee bends) before debugging anything at the BLE layer.
 
 ## If the app's device picker doesn't show the board
 
@@ -62,4 +64,4 @@ The hardware moved from two MPU6050s (thigh + shin) to one, mounted on the shin.
 
 ## Known limitation: accelerometer axis assumption
 
-`accelPitchDeg()` assumes a specific sensor-mounting orientation (see the comment above it in the `.ino`). If the calibration LED goes green but the angle doesn't change sensibly as you move the leg, the sensor is very likely mounted with a different face outward than assumed — swap which accelerometer axis (and the matching gyro axis, `g.gyro.y`) feeds the calculation.
+`accelPitchDeg()` assumes a specific sensor-mounting orientation (see the comment above it in the `.ino`). If calibration completes (Serial prints `"Calibrated."`) but the angle doesn't change sensibly as you move the leg, the sensor is very likely mounted with a different face outward than assumed — swap which accelerometer axis (and the matching gyro axis, `g.gyro.y`) feeds the calculation.
