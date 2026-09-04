@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { saveExerciseCapture } from '../db/repositories/exerciseCaptures'
-import { createBleSensorSource, isConnected as isSensorConnected } from '../lib/bleConnection'
-import { SimulatedSitToStandSource, type SensorSource } from '../lib/sensorSource'
+import { createBleSensorSource, isConnected as isSensorConnected, onDisconnect } from '../lib/bleConnection'
+import type { SensorSource } from '../lib/sensorSource'
 import { useTranslation } from '../i18n/I18nContext'
 import { Icon } from '../components/Icon'
+import { ErrorModal } from '../components/ErrorModal'
 import type { AngleSample } from '../lib/motionAnalysis'
 import type { ExerciseCapture } from '../types/models'
 
@@ -18,26 +19,50 @@ export default function SitToStandPage() {
   const [phase, setPhase] = useState<Phase>('safety-check')
   const [sampleCount, setSampleCount] = useState(0)
   const [result, setResult] = useState<ExerciseCapture | null>(null)
+  const [sensorErrorModal, setSensorErrorModal] = useState<{ title: string; message: string } | null>(null)
 
   const sourceRef = useRef<SensorSource | null>(null)
   const samplesRef = useRef<AngleSample[]>([])
   const startTimeRef = useRef<string>('')
-  const dataSourceRef = useRef<'ble' | 'simulated'>('simulated')
+
+  useEffect(
+    () =>
+      onDisconnect(() => {
+        if (!sourceRef.current) return
+        handleSensorError(t('sensorError.disconnectedMidCaptureMessage'))
+      }),
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  function handleSensorError(message: string) {
+    sourceRef.current?.stop()
+    sourceRef.current = null
+    samplesRef.current = []
+    setSampleCount(0)
+    setPhase('ready')
+    setSensorErrorModal({ title: t('sensorError.genericTitle'), message })
+  }
 
   function onStart() {
+    if (!isSensorConnected()) {
+      setSensorErrorModal({ title: t('sensorError.notConnectedTitle'), message: t('sensorError.notConnectedMessage') })
+      return
+    }
+
     samplesRef.current = []
     setSampleCount(0)
     setResult(null)
     startTimeRef.current = new Date().toISOString()
 
-    const sensorConnected = isSensorConnected()
-    const source = sensorConnected ? createBleSensorSource() : new SimulatedSitToStandSource()
+    const source = createBleSensorSource()
     sourceRef.current = source
-    dataSourceRef.current = sensorConnected ? 'ble' : 'simulated'
-    source.start((sample) => {
-      samplesRef.current.push(sample)
-      setSampleCount(samplesRef.current.length)
-    })
+    source.start(
+      (sample) => {
+        samplesRef.current.push(sample)
+        setSampleCount(samplesRef.current.length)
+      },
+      () => handleSensorError(t('sensorError.startFailedMessage')),
+    )
     setPhase('capturing')
   }
 
@@ -56,7 +81,7 @@ export default function SitToStandPage() {
       startTime: startTimeRef.current,
       endTime: new Date().toISOString(),
       samples: samplesRef.current,
-      dataSource: dataSourceRef.current,
+      dataSource: 'ble',
     })
     setResult(capture)
     setPhase('done')
@@ -118,11 +143,21 @@ export default function SitToStandPage() {
           </div>
         </div>
         <p className="card-info">
-          {isSensorConnected() ? t('kneeExtension.sensorConnected') : t('kneeExtension.sensorSimulated')}
+          {isSensorConnected() ? t('kneeExtension.sensorConnected') : t('kneeExtension.sensorNotConnected')}
         </p>
         <button type="button" onClick={onStart} className="btn btn-primary btn-lg btn-block">
           {t('kneeExtension.startCapture')}
         </button>
+        {sensorErrorModal && (
+          <ErrorModal
+            title={sensorErrorModal.title}
+            message={sensorErrorModal.message}
+            primaryLabel={t('sensorError.goToPairing')}
+            onPrimary={() => navigate(`/session/${sessionId}/sensor-pairing`)}
+            secondaryLabel={t('sensorError.dismiss')}
+            onSecondary={() => setSensorErrorModal(null)}
+          />
+        )}
       </>,
     )
   }
@@ -137,6 +172,16 @@ export default function SitToStandPage() {
         <button type="button" onClick={onStop} className="btn btn-danger btn-lg btn-block">
           {t('kneeExtension.stopCapture')}
         </button>
+        {sensorErrorModal && (
+          <ErrorModal
+            title={sensorErrorModal.title}
+            message={sensorErrorModal.message}
+            primaryLabel={t('sensorError.goToPairing')}
+            onPrimary={() => navigate(`/session/${sessionId}/sensor-pairing`)}
+            secondaryLabel={t('sensorError.dismiss')}
+            onSecondary={() => setSensorErrorModal(null)}
+          />
+        )}
       </>,
     )
   }

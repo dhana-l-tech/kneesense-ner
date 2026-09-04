@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { calibrate, connect, isConnected } from '../lib/bleConnection'
+import { calibrate, connect, isConnected, onDisconnect } from '../lib/bleConnection'
 import { useTranslation } from '../i18n/I18nContext'
 import { Icon } from '../components/Icon'
+import { ErrorModal } from '../components/ErrorModal'
 
 type Status = 'idle' | 'connecting' | 'connected' | 'calibrating' | 'calibrated' | 'error'
 
@@ -11,28 +12,28 @@ export default function SensorPairingPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [status, setStatus] = useState<Status>(isConnected() ? 'connected' : 'idle')
-  const [error, setError] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  useEffect(() => onDisconnect(() => setStatus('idle')), [])
 
   async function onConnect() {
     setStatus('connecting')
-    setError(null)
     try {
-      await connect(() => setStatus('idle'))
+      await connect()
       setStatus('connected')
     } catch (err) {
-      setError(String(err))
+      setErrorMessage(String(err))
       setStatus('error')
     }
   }
 
   async function onCalibrate() {
     setStatus('calibrating')
-    setError(null)
     try {
       await calibrate()
       setStatus('calibrated')
     } catch (err) {
-      setError(String(err))
+      setErrorMessage(String(err))
       setStatus('error')
     }
   }
@@ -78,8 +79,6 @@ export default function SensorPairingPage() {
         </button>
       </div>
 
-      {error && <p style={{ color: 'var(--color-danger)', fontSize: 13 }}>{error}</p>}
-
       <button
         type="button"
         onClick={() => navigate(`/session/${sessionId}/exercise`)}
@@ -87,6 +86,15 @@ export default function SensorPairingPage() {
       >
         {status === 'calibrated' ? t('sensorPairing.continue') : t('sensorPairing.skip')}
       </button>
+
+      {errorMessage && (
+        <ErrorModal
+          title={t('sensorError.genericTitle')}
+          message={errorMessage}
+          primaryLabel={t('sensorError.dismiss')}
+          onPrimary={() => setErrorMessage(null)}
+        />
+      )}
     </main>
   )
 }

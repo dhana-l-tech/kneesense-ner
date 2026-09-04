@@ -23,12 +23,26 @@ export function isConnected(): boolean {
   return deviceId !== null;
 }
 
-export async function connect(onDisconnect?: () => void): Promise<void> {
+/**
+ * Fan-out for BLE disconnect events. There's exactly one native disconnect
+ * callback per connection (registered in connect() below), but more than
+ * one screen needs to react to it — SensorPairingPage resets its own
+ * status, and whichever capture page is mid-capture needs to stop and show
+ * an error rather than silently freezing. Returns an unsubscribe function.
+ */
+const disconnectListeners = new Set<() => void>();
+
+export function onDisconnect(listener: () => void): () => void {
+  disconnectListeners.add(listener);
+  return () => disconnectListeners.delete(listener);
+}
+
+export async function connect(): Promise<void> {
   await ensureInitialized();
   const device = await BleClient.requestDevice({ services: [SERVICE_UUID] });
   await BleClient.connect(device.deviceId, () => {
     deviceId = null;
-    onDisconnect?.();
+    disconnectListeners.forEach((listener) => listener());
   });
   deviceId = device.deviceId;
 }
@@ -52,8 +66,11 @@ export async function calibrate(): Promise<void> {
  */
 export function createBleSensorSource(): SensorSource {
   return {
-    start(onSample: (sample: AngleSample) => void) {
-      if (!deviceId) throw new Error('Not connected to a sensor');
+    start(onSample: (sample: AngleSample) => void, onError?: (error: unknown) => void) {
+      if (!deviceId) {
+        onError?.(new Error('Not connected to a sensor'));
+        return;
+      }
       const id = deviceId;
       BleClient.startNotifications(id, SERVICE_UUID, ANGLE_CHAR_UUID, (value) => {
         const { t, angle } = decodeAnglePayload(value);
@@ -66,7 +83,10 @@ export function createBleSensorSource(): SensorSource {
         onSample({ t, thighAngle: 0, shinAngle: angle });
       })
         .then(() => BleClient.write(id, SERVICE_UUID, CONTROL_CHAR_UUID, numbersToDataView([CONTROL_CMD.START_STREAMING])))
-        .catch((err) => console.error('[ble] failed to start streaming', err));
+        .catch((err) => {
+          console.error('[ble] failed to start streaming', err);
+          onError?.(err);
+        });
     },
     stop() {
       if (!deviceId) return;

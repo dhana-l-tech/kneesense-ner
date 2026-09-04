@@ -1,13 +1,14 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { saveExerciseCapture } from '../db/repositories/exerciseCaptures'
 import { saveCameraFeatures } from '../db/repositories/cameraFeatures'
 import { getSession } from '../db/repositories/sessions'
-import { SimulatedKneeExtensionSource, type SensorSource } from '../lib/sensorSource'
-import { createBleSensorSource, isConnected as isSensorConnected } from '../lib/bleConnection'
+import type { SensorSource } from '../lib/sensorSource'
+import { createBleSensorSource, isConnected as isSensorConnected, onDisconnect } from '../lib/bleConnection'
 import { PoseCameraSource, type CameraAngleSample, type KneeSide, type Point2D } from '../lib/cameraSource'
 import { useTranslation } from '../i18n/I18nContext'
 import { Icon } from '../components/Icon'
+import { ErrorModal } from '../components/ErrorModal'
 import type { AngleSample } from '../lib/motionAnalysis'
 import type { CameraFeatures, ExerciseCapture } from '../types/models'
 
@@ -87,18 +88,44 @@ export default function ExerciseCapturePage() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [liveAngle, setLiveAngle] = useState<number | null>(null)
   const [liveConfidence, setLiveConfidence] = useState<number | null>(null)
+  const [sensorErrorModal, setSensorErrorModal] = useState<{ title: string; message: string } | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const sourceRef = useRef<SensorSource | null>(null)
   const samplesRef = useRef<AngleSample[]>([])
   const startTimeRef = useRef<string>('')
-  const dataSourceRef = useRef<'ble' | 'simulated'>('simulated')
 
   const cameraSourceRef = useRef<PoseCameraSource | null>(null)
   const cameraSamplesRef = useRef<CameraAngleSample[]>([])
 
+  // Mid-capture disconnect (dead battery, out of range, etc.) — sourceRef is
+  // only non-null while a capture is actually in progress, so this only
+  // fires when it matters, not on every disconnect anywhere in the app.
+  useEffect(
+    () =>
+      onDisconnect(() => {
+        if (!sourceRef.current) return
+        handleSensorError(t('sensorError.disconnectedMidCaptureMessage'))
+      }),
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  function handleSensorError(message: string) {
+    sourceRef.current?.stop()
+    sourceRef.current = null
+    samplesRef.current = []
+    setSampleCount(0)
+    setCapturing(false)
+    setSensorErrorModal({ title: t('sensorError.genericTitle'), message })
+  }
+
   function onStart() {
+    if (!isSensorConnected()) {
+      setSensorErrorModal({ title: t('sensorError.notConnectedTitle'), message: t('sensorError.notConnectedMessage') })
+      return
+    }
+
     samplesRef.current = []
     setSampleCount(0)
     setResult(null)
@@ -108,14 +135,15 @@ export default function ExerciseCapturePage() {
     setLiveConfidence(null)
     startTimeRef.current = new Date().toISOString()
 
-    const sensorConnected = isSensorConnected()
-    const source = sensorConnected ? createBleSensorSource() : new SimulatedKneeExtensionSource()
+    const source = createBleSensorSource()
     sourceRef.current = source
-    dataSourceRef.current = sensorConnected ? 'ble' : 'simulated'
-    source.start((sample) => {
-      samplesRef.current.push(sample)
-      setSampleCount(samplesRef.current.length)
-    })
+    source.start(
+      (sample) => {
+        samplesRef.current.push(sample)
+        setSampleCount(samplesRef.current.length)
+      },
+      () => handleSensorError(t('sensorError.startFailedMessage')),
+    )
 
     if (useCamera && videoRef.current) {
       cameraSamplesRef.current = []
@@ -159,7 +187,7 @@ export default function ExerciseCapturePage() {
         startTime: startTimeRef.current,
         endTime: new Date().toISOString(),
         samples: samplesRef.current,
-        dataSource: dataSourceRef.current,
+        dataSource: 'ble',
       })
       setResult(capture)
 
@@ -187,7 +215,7 @@ export default function ExerciseCapturePage() {
       </div>
 
       <p className="card-info">
-        {isSensorConnected() ? t('kneeExtension.sensorConnected') : t('kneeExtension.sensorSimulated')}
+        {isSensorConnected() ? t('kneeExtension.sensorConnected') : t('kneeExtension.sensorNotConnected')}
       </p>
 
       {!capturing && !result && (
@@ -306,6 +334,17 @@ export default function ExerciseCapturePage() {
             {t('kneeExtension.continueToSitToStand')}
           </button>
         </div>
+      )}
+
+      {sensorErrorModal && (
+        <ErrorModal
+          title={sensorErrorModal.title}
+          message={sensorErrorModal.message}
+          primaryLabel={t('sensorError.goToPairing')}
+          onPrimary={() => navigate(`/session/${sessionId}/sensor-pairing`)}
+          secondaryLabel={t('sensorError.dismiss')}
+          onSecondary={() => setSensorErrorModal(null)}
+        />
       )}
     </main>
   )

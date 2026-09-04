@@ -39,7 +39,7 @@ export const en = {
 
   // ---------------- Questionnaire ----------------
   'questionnaire.savedTitle': 'Questionnaire saved',
-  'questionnaire.savedSubtitle': 'Next: attach the two sensors and calibrate.',
+  'questionnaire.savedSubtitle': 'Next: attach the sensor and calibrate.',
   'questionnaire.continueToSensorSetup': 'Continue to sensor setup',
   'questionnaire.title': 'Symptom questionnaire',
   'questionnaire.painSectionLabel': 'Pain score — 0 = no pain, 10 = worst pain',
@@ -61,7 +61,7 @@ export const en = {
   'sensorPairing.subtitle':
     'Attach the sensor to the outer shin, 8–12 cm below the knee, pointing toward the hip.',
   'sensorPairing.skipNotice':
-    'No ESP32 in range? Skip this step — the exercise screens fall back to a simulated signal so you can still test the rest of the app.',
+    'No ESP32 in range? You can skip this step, but the exercise screens will ask you to connect a sensor before they let you start a capture — there is no simulated fallback.',
   'sensorPairing.step1': '1. Connect',
   'sensorPairing.connect': 'Connect to ESP32',
   'sensorPairing.connecting': 'Connecting…',
@@ -72,14 +72,26 @@ export const en = {
   'sensorPairing.calibrating': 'Calibrating…',
   'sensorPairing.calibrated': '✓ Calibrated',
   'sensorPairing.continue': 'Continue',
-  'sensorPairing.skip': 'Skip (use simulated data)',
+  'sensorPairing.skip': 'Skip for now',
+
+  // ---------------- Sensor errors (ErrorModal.tsx) ----------------
+  'sensorError.genericTitle': 'Sensor error',
+  'sensorError.notConnectedTitle': 'No sensor connected',
+  'sensorError.notConnectedMessage':
+    'Connect and calibrate the ESP32 on the Sensor Pairing screen before starting a capture. There is no simulated fallback — a capture cannot start without a real sensor connected.',
+  'sensorError.disconnectedMidCaptureMessage':
+    'The sensor disconnected during capture (check battery and range). The partial data was discarded — reconnect and redo the capture.',
+  'sensorError.startFailedMessage':
+    'Could not start streaming from the sensor. Check that it is powered on and in range, then try again.',
+  'sensorError.goToPairing': 'Go to Sensor Pairing',
+  'sensorError.dismiss': 'Dismiss',
 
   // ---------------- Knee extension capture ----------------
   'kneeExtension.title': 'Seated knee extension',
   'kneeExtension.subtitle':
-    'Have the patient sit with both sensors attached, then extend and bend the knee at a steady pace for 6–8 repetitions.',
+    'Have the patient sit with the sensor attached, then extend and bend the knee at a steady pace for 6–8 repetitions.',
   'kneeExtension.sensorConnected': '✓ ESP32 connected — using live sensor data.',
-  'kneeExtension.sensorSimulated': 'No ESP32 paired yet — using a simulated signal so the flow can still be tested end-to-end.',
+  'kneeExtension.sensorNotConnected': 'No ESP32 connected. Go to Sensor Pairing before starting a capture.',
   'kneeExtension.enableCamera': 'Enable camera cross-check (optional)',
   'kneeExtension.cameraEnabled': '✓ Camera cross-check enabled',
   'kneeExtension.startCapture': 'Start capture',
@@ -113,7 +125,7 @@ export const en = {
   'sitToStand.skippedTitle': 'Sit-to-stand test skipped',
   'sitToStand.skippedSubtitle': "Marked as skipped for patient safety. This won't count against the screening result.",
   'sitToStand.readySubtitle':
-    'Have the patient sit in a stable chair with both sensors attached, arms crossed if possible, then stand fully and sit back down at a steady pace for about 5 repetitions.',
+    'Have the patient sit in a stable chair with the sensor attached, arms crossed if possible, then stand fully and sit back down at a steady pace for about 5 repetitions.',
   'sitToStand.capturingTitle': 'Capturing…',
   'sitToStand.samplesCount': '{count} samples',
   'sitToStand.resultTitle': 'Result',
