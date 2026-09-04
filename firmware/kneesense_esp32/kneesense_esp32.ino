@@ -50,16 +50,13 @@
   ---------------------------------------------------------------------
   LIBRARIES (install via Arduino IDE Library Manager)
   ---------------------------------------------------------------------
-  - Adafruit MPU6050
-  - Adafruit Unified Sensor
-  - Adafruit BusIO
-  (ESP32's built-in BLE library — BLEDevice.h etc. — ships with the
-  ESP32 board package, nothing extra to install for that part.)
+  None beyond what ships with the ESP32 board package (Wire.h for I2C,
+  BLEDevice.h etc. for BLE). The MPU6050 is driven by direct register
+  reads/writes (see "MPU6050 direct register access" below) rather than
+  the Adafruit_MPU6050 library, to skip that library's init overhead.
 */
 
 #include <Wire.h>
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_Sensor.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -92,7 +89,6 @@ const uint8_t CMD_STOP_STREAMING  = 0x03;
 // Bit 0 of the status byte (see STATUS_CHAR_UUID below).
 const uint8_t STATUS_BIT_LAST_RESET_BROWNOUT = 0x01;
 
-Adafruit_MPU6050 mpu;
 bool sensorOk = false;
 // There's no battery-voltage sensing on this board (USB power bank supply
 // has no exposed cell voltage to read) — the ESP32's own brownout detector
@@ -135,6 +131,92 @@ void buzzVibrate(int ms) {
   digitalWrite(PIN_MOTOR, LOW);
 }
 
+// ---------------- MPU6050 direct register access ----------------
+// Talks to the MPU6050 directly over Wire per its register map, instead of
+// through Adafruit_MPU6050 — that library's begin()/getEvent() adds I2C
+// round-trips and general-purpose-sensor overhead this firmware doesn't
+// need. Configured to match what the Adafruit library was set to before
+// (so the angle math below is numerically unchanged): +/-4g accel range,
+// +/-500deg/s gyro range, ~21Hz DLPF bandwidth. If you change any of these
+// three, update the matching *_LSB_PER_* constant below too, or every
+// downstream angle will be silently scaled wrong.
+const uint8_t MPU_REG_WHO_AM_I     = 0x75;
+const uint8_t MPU_REG_PWR_MGMT_1   = 0x6B;
+const uint8_t MPU_REG_CONFIG       = 0x1A;
+const uint8_t MPU_REG_GYRO_CONFIG  = 0x1B;
+const uint8_t MPU_REG_ACCEL_CONFIG = 0x1C;
+const uint8_t MPU_REG_ACCEL_XOUT_H = 0x3B;
+
+const float ACCEL_LSB_PER_G  = 8192.0f; // AFS_SEL=1 -> +/-4g (see mpuBegin())
+const float GYRO_LSB_PER_DPS = 65.5f;   // FS_SEL=1  -> +/-500deg/s (see mpuBegin())
+const float G_TO_MS2         = 9.80665f;
+const float DEG_TO_RAD       = PI / 180.0f;
+
+// Physical-unit accel/gyro reading, same convention Adafruit's
+// sensors_event_t used (accel in m/s^2, gyro in rad/s) so the math below
+// didn't need to change when this replaced that library. Only gyroY is
+// kept (the only axis this firmware's complementary filter uses).
+struct ImuSample {
+  float accelX, accelY, accelZ;
+  float gyroY;
+};
+
+void mpuWriteReg(uint8_t reg, uint8_t value) {
+  Wire.beginTransmission(MPU_ADDR);
+  Wire.write(reg);
+  Wire.write(value);
+  Wire.endTransmission();
+}
+
+uint8_t mpuReadReg(uint8_t reg) {
+  Wire.beginTransmission(MPU_ADDR);
+  Wire.write(reg);
+  Wire.endTransmission(false); // repeated start, keep the bus held for the read
+  Wire.requestFrom(MPU_ADDR, (uint8_t)1);
+  return Wire.available() ? Wire.read() : 0;
+}
+
+// Same "did the sensor actually respond" check Adafruit_MPU6050's begin()
+// did (WHO_AM_I must read back 0x68) — kept so sensorOk / the solid-red
+// "sensor not found" LED behavior still works without it. Also wakes the
+// chip (it boots with the sleep bit set in PWR_MGMT_1) and configures the
+// same ranges/filter the Adafruit library used to.
+bool mpuBegin() {
+  if (mpuReadReg(MPU_REG_WHO_AM_I) != 0x68) return false;
+  mpuWriteReg(MPU_REG_PWR_MGMT_1, 0x00);   // clear sleep bit
+  mpuWriteReg(MPU_REG_CONFIG, 0x04);       // DLPF_CFG=4 -> ~21Hz accel bandwidth
+  mpuWriteReg(MPU_REG_GYRO_CONFIG, 0x08);  // FS_SEL=1  -> +/-500deg/s
+  mpuWriteReg(MPU_REG_ACCEL_CONFIG, 0x08); // AFS_SEL=1 -> +/-4g
+  return true;
+}
+
+// Burst-reads all 14 accel+temp+gyro bytes in one I2C transaction (starting
+// at ACCEL_XOUT_H, the datasheet's standard contiguous block) and converts
+// to the physical units the rest of this file expects. Temperature and the
+// unused gyro axes are read (the burst is contiguous, so skipping them
+// would need extra transactions, not fewer bytes) and discarded.
+ImuSample mpuReadSample() {
+  Wire.beginTransmission(MPU_ADDR);
+  Wire.write(MPU_REG_ACCEL_XOUT_H);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU_ADDR, (uint8_t)14);
+
+  int16_t rawAx = (Wire.read() << 8) | Wire.read();
+  int16_t rawAy = (Wire.read() << 8) | Wire.read();
+  int16_t rawAz = (Wire.read() << 8) | Wire.read();
+  Wire.read(); Wire.read(); // temperature - unused
+  Wire.read(); Wire.read(); // gyro X - unused (only gyro Y feeds the filter)
+  int16_t rawGy = (Wire.read() << 8) | Wire.read();
+  Wire.read(); Wire.read(); // gyro Z - unused
+
+  ImuSample s;
+  s.accelX = (rawAx / ACCEL_LSB_PER_G) * G_TO_MS2;
+  s.accelY = (rawAy / ACCEL_LSB_PER_G) * G_TO_MS2;
+  s.accelZ = (rawAz / ACCEL_LSB_PER_G) * G_TO_MS2;
+  s.gyroY  = (rawGy / GYRO_LSB_PER_DPS) * DEG_TO_RAD;
+  return s;
+}
+
 // ---------------- Sensor math ----------------
 
 // Pitch around the mediolateral (side-to-side) axis, from the
@@ -143,8 +225,8 @@ void buzzVibrate(int ms) {
 // If your sensor is mounted with a different face outward, you may need
 // to swap which accel axis feeds this (and the matching gyro axis below)
 // — check with the calibration LED + a slow known motion.
-float accelPitchDeg(sensors_event_t &a) {
-  return atan2(a.acceleration.y, sqrt(a.acceleration.x * a.acceleration.x + a.acceleration.z * a.acceleration.z)) * 180.0 / PI;
+float accelPitchDeg(const ImuSample &a) {
+  return atan2(a.accelY, sqrt(a.accelX * a.accelX + a.accelZ * a.accelZ)) * 180.0 / PI;
 }
 
 // Calibrates while the leg is held straight and still: takes the
@@ -161,10 +243,9 @@ void calibrate() {
   float gyroSum = 0;
 
   for (int i = 0; i < N; i++) {
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
-    angleSum += accelPitchDeg(a);
-    gyroSum += g.gyro.y;
+    ImuSample s = mpuReadSample();
+    angleSum += accelPitchDeg(s);
+    gyroSum += s.gyroY;
     delay(10);
   }
 
@@ -263,16 +344,11 @@ void setup() {
   pinMode(PIN_MOTOR, OUTPUT);
   setColor(false, false, true); // blue = starting up
 
-  sensorOk = mpu.begin(MPU_ADDR);
-  if (!sensorOk) Serial.println("MPU6050 (0x68) not found — check wiring/AD0");
-
+  sensorOk = mpuBegin();
   if (!sensorOk) {
     // Solid red = the sensor didn't respond. Fix wiring and reset the board.
+    Serial.println("MPU6050 (0x68) not found — check wiring/AD0");
     setColor(true, false, false);
-  } else {
-    mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
-    mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-    mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
   }
 
   setupBle();
@@ -297,9 +373,8 @@ void loop() {
   if (dt < 0.02) return; // ~50 Hz cap
   lastSampleMicros = now;
 
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-  float accelAngle = accelPitchDeg(a);
+  ImuSample s = mpuReadSample();
+  float accelAngle = accelPitchDeg(s);
 
   // Complementary filter: mostly trust the integrated (bias-corrected)
   // gyro rate for smooth, low-latency motion, and slowly pull toward the
@@ -308,7 +383,7 @@ void loop() {
   // — raise it for smoother-but-slower drift correction, lower it if the
   // angle visibly drifts during a long capture.
   const float ALPHA = 0.98;
-  shinAngle = ALPHA * (shinAngle + (g.gyro.y - gyroBiasRadS) * dt * 180.0 / PI) + (1 - ALPHA) * accelAngle;
+  shinAngle = ALPHA * (shinAngle + (s.gyroY - gyroBiasRadS) * dt * 180.0 / PI) + (1 - ALPHA) * accelAngle;
 
   // 8-byte payload: uint32 millis-since-boot, float32 angle (see
   // src/lib/bleProtocol.ts — single-sensor mode dropped the second float).

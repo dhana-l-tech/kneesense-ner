@@ -8,12 +8,7 @@ Streams a shin orientation angle over BLE to the app (single-sensor mode — one
 
 1. **Board support**: File → Preferences → Additional Boards Manager URLs → add `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`, then Tools → Board → Boards Manager → install **esp32** (Espressif Systems).
 2. **Board selection**: Tools → Board → ESP32 Arduino → **ESP32 Dev Module** (or your specific board if different).
-3. **Libraries** (Sketch → Include Library → Manage Libraries): install
-   - `Adafruit MPU6050`
-   - `Adafruit Unified Sensor`
-   - `Adafruit BusIO`
-
-   (The ESP32 BLE library — `BLEDevice.h` etc. — ships with the esp32 board package, nothing extra to install there.)
+3. **Libraries**: none to install. The MPU6050 is driven by direct I2C register access (`Wire.h`, which ships with the board package), not the Adafruit_MPU6050 library — see "MPU6050 direct register access" in the `.ino` for why and exactly what it replicates. The BLE library (`BLEDevice.h` etc.) also ships with the esp32 board package.
 4. Wire everything per the comment block at the top of the `.ino` file.
 5. Upload, then open the Serial Monitor at **115200 baud** — it'll print an error if the sensor isn't found at its expected I2C address (a wiring/AD0 check).
 6. **Calibrate with the leg fully straight.** In single-sensor mode the app computes knee angle directly from this one sensor's angle relative to whatever pose it was calibrated in — see "Single-sensor mode" below.
