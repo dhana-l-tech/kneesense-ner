@@ -148,6 +148,10 @@ export const en = {
   // ---------------- Results ----------------
   'results.calculating': 'Calculating…',
   'results.errorTitle': 'Could not compute results',
+  'results.simulatedDataTitle': 'Sensor not connected during capture',
+  'results.simulatedDataMessage':
+    'The knee-extension capture used a simulated test signal, not real sensor readings — no ESP32 was connected at the time. A risk result cannot be shown for simulated data. Reconnect the sensor on the pairing screen and redo the knee-extension capture.',
+  'results.recaptureButton': 'Redo knee-extension capture',
   'results.lowHeading': 'Low OA-risk markers',
   'results.lowGuidance': 'No urgent concerns identified. Advise routine monitoring and preventive knee care.',
   'results.moderateHeading': 'Moderate OA-risk markers detected',

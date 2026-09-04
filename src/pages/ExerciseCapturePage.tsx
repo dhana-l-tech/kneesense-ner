@@ -93,6 +93,7 @@ export default function ExerciseCapturePage() {
   const sourceRef = useRef<SensorSource | null>(null)
   const samplesRef = useRef<AngleSample[]>([])
   const startTimeRef = useRef<string>('')
+  const dataSourceRef = useRef<'ble' | 'simulated'>('simulated')
 
   const cameraSourceRef = useRef<PoseCameraSource | null>(null)
   const cameraSamplesRef = useRef<CameraAngleSample[]>([])
@@ -107,8 +108,10 @@ export default function ExerciseCapturePage() {
     setLiveConfidence(null)
     startTimeRef.current = new Date().toISOString()
 
-    const source = isSensorConnected() ? createBleSensorSource() : new SimulatedKneeExtensionSource()
+    const sensorConnected = isSensorConnected()
+    const source = sensorConnected ? createBleSensorSource() : new SimulatedKneeExtensionSource()
     sourceRef.current = source
+    dataSourceRef.current = sensorConnected ? 'ble' : 'simulated'
     source.start((sample) => {
       samplesRef.current.push(sample)
       setSampleCount(samplesRef.current.length)
@@ -156,6 +159,7 @@ export default function ExerciseCapturePage() {
         startTime: startTimeRef.current,
         endTime: new Date().toISOString(),
         samples: samplesRef.current,
+        dataSource: dataSourceRef.current,
       })
       setResult(capture)
 

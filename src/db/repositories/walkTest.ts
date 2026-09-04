@@ -25,14 +25,23 @@ export async function saveWalkTest(input: SaveWalkTestInput): Promise<{ capture:
     exercise_type: 'walk_test',
     start_time: input.startTime,
     end_time: input.endTime,
+    data_source: 'manual',
     created_at: new Date().toISOString(),
     synced: 0,
   };
 
   await db.run(
-    `INSERT INTO exercise_captures (id, session_id, exercise_type, start_time, end_time, created_at, synced)
-     VALUES (?, ?, ?, ?, ?, ?, 0)`,
-    [capture.id, capture.session_id, capture.exercise_type, capture.start_time, capture.end_time, capture.created_at],
+    `INSERT INTO exercise_captures (id, session_id, exercise_type, start_time, end_time, data_source, created_at, synced)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+    [
+      capture.id,
+      capture.session_id,
+      capture.exercise_type,
+      capture.start_time,
+      capture.end_time,
+      capture.data_source,
+      capture.created_at,
+    ],
   );
   await queueForSync('exercise_captures', capture.id, 'insert', capture as unknown as Record<string, unknown>);
 

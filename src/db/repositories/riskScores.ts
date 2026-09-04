@@ -10,6 +10,22 @@ import { getCameraFeaturesForCapture } from './cameraFeatures';
 
 const MIN_TRUSTED_CAMERA_CONFIDENCE = 0.5;
 
+/**
+ * Thrown when the knee-extension capture that would drive the ROM/movement-
+ * quality components (40% of the weighted score) came from the dev-only
+ * simulator (see sensorSource.ts) rather than a real ESP32 — i.e. no sensor
+ * was actually connected during that capture. Deliberately a distinct type
+ * so callers (ResultsPage, reports.ts) can show "reconnect the sensor and
+ * recapture" instead of silently producing a risk category from fabricated
+ * numbers.
+ */
+export class SimulatedCaptureError extends Error {
+  constructor() {
+    super('Cannot compute a real risk score: the knee-extension capture used simulated data (no ESP32 was connected). Reconnect the sensor and recapture.');
+    this.name = 'SimulatedCaptureError';
+  }
+}
+
 /** Pulls the session's saved questionnaire + exercise captures, scores them, and persists the result. */
 export async function computeAndSaveRiskScore(sessionId: string): Promise<RiskScore & { breakdown: RiskScoreBreakdown }> {
   const questionnaire = await getQuestionnaireForSession(sessionId);
@@ -17,6 +33,7 @@ export async function computeAndSaveRiskScore(sessionId: string): Promise<RiskSc
 
   const captures = await listCapturesForSession(sessionId);
   const kneeExtension = captures.find((c) => c.exercise_type === 'knee_extension') ?? null;
+  if (kneeExtension?.data_source === 'simulated') throw new SimulatedCaptureError();
   const walkTest = await getWalkTestForSession(sessionId);
   const cameraFeatures = kneeExtension ? await getCameraFeaturesForCapture(kneeExtension.id) : null;
   // "If camera confidence is low, rely more on the IMU" (spec) — a

@@ -22,6 +22,7 @@ export default function SitToStandPage() {
   const sourceRef = useRef<SensorSource | null>(null)
   const samplesRef = useRef<AngleSample[]>([])
   const startTimeRef = useRef<string>('')
+  const dataSourceRef = useRef<'ble' | 'simulated'>('simulated')
 
   function onStart() {
     samplesRef.current = []
@@ -29,8 +30,10 @@ export default function SitToStandPage() {
     setResult(null)
     startTimeRef.current = new Date().toISOString()
 
-    const source = isSensorConnected() ? createBleSensorSource() : new SimulatedSitToStandSource()
+    const sensorConnected = isSensorConnected()
+    const source = sensorConnected ? createBleSensorSource() : new SimulatedSitToStandSource()
     sourceRef.current = source
+    dataSourceRef.current = sensorConnected ? 'ble' : 'simulated'
     source.start((sample) => {
       samplesRef.current.push(sample)
       setSampleCount(samplesRef.current.length)
@@ -53,6 +56,7 @@ export default function SitToStandPage() {
       startTime: startTimeRef.current,
       endTime: new Date().toISOString(),
       samples: samplesRef.current,
+      dataSource: dataSourceRef.current,
     })
     setResult(capture)
     setPhase('done')

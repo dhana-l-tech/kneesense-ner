@@ -68,6 +68,8 @@ export interface ExerciseCapture {
   rom_deg?: number;
   smoothness?: number;
   rep_count?: number;
+  /** 'manual' = walk_test rows, which have no angle stream at all (tap-counted, not sensor-driven). */
+  data_source: 'ble' | 'simulated' | 'manual';
   created_at: string;
   synced: 0 | 1;
 }

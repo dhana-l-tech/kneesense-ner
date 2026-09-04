@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS exercise_captures (
   rom_deg         REAL,
   smoothness      REAL,
   rep_count       INTEGER,
+  data_source     TEXT NOT NULL DEFAULT 'ble', -- 'ble' (real sensor), 'simulated' (dev fallback, see sensorSource.ts — riskScores.ts refuses to score a session on simulated knee-extension data), or 'manual' (walk_test rows, which are tap-counted, not sensor-streamed)
   created_at      TEXT NOT NULL,
   synced          INTEGER NOT NULL DEFAULT 0
 );

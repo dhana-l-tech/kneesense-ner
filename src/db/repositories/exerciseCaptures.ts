@@ -10,6 +10,8 @@ export interface SaveCaptureInput {
   startTime: string;
   endTime: string;
   samples: AngleSample[];
+  /** Which SensorSource produced `samples` — 'simulated' means no ESP32 was connected (see sensorSource.ts). riskScores.ts refuses to compute a real risk score from a simulated knee-extension capture. */
+  dataSource: 'ble' | 'simulated';
 }
 
 /** Runs the motion analysis and persists both the summary row and the raw stream. */
@@ -32,6 +34,7 @@ export async function saveExerciseCapture(input: SaveCaptureInput): Promise<Exer
     rom_deg: Math.round(rom * 10) / 10,
     smoothness: Math.round(smoothness * 1000) / 1000,
     rep_count: repCount,
+    data_source: input.dataSource,
     created_at: new Date().toISOString(),
     synced: 0,
   };
@@ -39,8 +42,8 @@ export async function saveExerciseCapture(input: SaveCaptureInput): Promise<Exer
   await db.run(
     `INSERT INTO exercise_captures (
        id, session_id, exercise_type, start_time, end_time, raw_data_path,
-       min_angle_deg, max_angle_deg, rom_deg, smoothness, rep_count, created_at, synced
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+       min_angle_deg, max_angle_deg, rom_deg, smoothness, rep_count, data_source, created_at, synced
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
     [
       capture.id,
       capture.session_id,
@@ -53,6 +56,7 @@ export async function saveExerciseCapture(input: SaveCaptureInput): Promise<Exer
       capture.rom_deg ?? null,
       capture.smoothness ?? null,
       capture.rep_count ?? null,
+      capture.data_source,
       capture.created_at,
     ],
   );
