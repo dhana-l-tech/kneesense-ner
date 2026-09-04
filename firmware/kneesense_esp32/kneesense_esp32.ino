@@ -117,7 +117,11 @@ const uint8_t MPU_REG_ACCEL_XOUT_H = 0x3B;
 const float ACCEL_LSB_PER_G  = 8192.0f; // AFS_SEL=1 -> +/-4g (see mpuBegin())
 const float GYRO_LSB_PER_DPS = 65.5f;   // FS_SEL=1  -> +/-500deg/s (see mpuBegin())
 const float G_TO_MS2         = 9.80665f;
-const float DEG_TO_RAD       = PI / 180.0f;
+// DEG_TO_RAD is NOT redeclared here — the ESP32 core's own Arduino.h already
+// #defines it (0.017453...), and shadowing that macro name breaks the
+// preprocessor in a way that produces a very confusing "expected
+// unqualified-id before numeric constant" error. Use the core's macro
+// directly wherever a deg->rad conversion is needed below.
 
 // Physical-unit accel/gyro reading, same convention Adafruit's
 // sensors_event_t used (accel in m/s^2, gyro in rad/s) so the math below
@@ -240,9 +244,12 @@ class ServerCallbacks : public BLEServerCallbacks {
 
 class ControlCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *c) override {
-    std::string v = c->getValue();
-    if (v.length() == 0) return;
-    uint8_t cmd = (uint8_t)v[0];
+    // Read the raw byte buffer directly rather than going through
+    // getValue() — that method's return type (std::string vs. Arduino
+    // String) has changed across ESP32 core versions, but getData()/
+    // getLength() are the stable low-level accessors on both.
+    if (c->getLength() == 0) return;
+    uint8_t cmd = c->getData()[0];
     if (cmd == CMD_CALIBRATE) {
       calibrate();
     } else if (cmd == CMD_START_STREAMING) {
