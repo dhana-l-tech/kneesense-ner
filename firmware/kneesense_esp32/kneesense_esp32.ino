@@ -207,8 +207,19 @@ class ControlCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
+// A legacy BLE advertising packet is capped at 31 bytes total. Flags (3
+// bytes) + our 128-bit service UUID (2-byte header + 16 bytes = 18 bytes)
+// already use 21 of those — "KneeSense-NER" as the device name would need
+// 15 more (36 total, over the limit), which can make the ESP32 BLE stack
+// silently drop or split the service UUID out of the primary advertisement.
+// Since the app's requestDevice({services:[SERVICE_UUID]}) filters ON that
+// UUID, a device broadcasting it outside the primary packet may just never
+// show up in the picker even though it's genuinely in range and powered on.
+// Keep this short enough that everything fits in one packet with margin.
+#define BLE_DEVICE_NAME "KS-NER"
+
 void setupBle() {
-  BLEDevice::init("KneeSense-NER");
+  BLEDevice::init(BLE_DEVICE_NAME);
   BLEServer *server = BLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
   BLEService *service = server->createService(SERVICE_UUID);

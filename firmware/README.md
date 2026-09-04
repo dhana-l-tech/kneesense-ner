@@ -30,6 +30,14 @@ Streams a shin orientation angle over BLE to the app (single-sensor mode — one
 
 The Serial Monitor only prints a sensor-not-found error right now. To sanity-check the IMU readings independently before involving BLE at all, temporarily add a `Serial.print`/`println` call for `shinAngle` in `loop()` — that's the fastest way to confirm the complementary filter looks reasonable (near 0 right after calibrating with the leg straight, increasing smoothly as the knee bends) before debugging anything at the BLE layer.
 
+## If the app's device picker doesn't show the board
+
+The device broadcasts as **`KS-NER`** (not "KneeSense-NER" — the longer name plus the 128-bit service UUID didn't fit in one legacy BLE advertising packet, 31 bytes max; see the comment above `BLE_DEVICE_NAME` in the `.ino`. That mismatch can make a device invisible to a services-filtered scan even while it's genuinely powered on and in range). If pairing still doesn't find it after reflashing with this name:
+
+- Confirm the device you're testing *from* (laptop vs. phone) has Bluetooth turned on and is itself within range — seeing the board on one device (e.g. a phone's Bluetooth scan) says nothing about whether a different device (e.g. a laptop's Chrome) can see it; each has its own radio.
+- A generic BLE scanner app (nRF Connect, LightBlue, Serial Bluetooth Terminal) confirms the board is advertising *something*, but check it specifically shows the `KS-NER` name and the `b5b2b8a0-0001-...` service UUID in its advertisement — not just that some device with a MAC address showed up.
+- Retry a couple of times — Chrome's Web Bluetooth device chooser can take a few seconds to populate; closing it before it finishes throws `NotFoundError: User cancelled the requestDevice() chooser`, which looks like a real failure but may just be an early cancel.
+
 ## Protocol
 
 Matches [`src/lib/bleProtocol.ts`](../src/lib/bleProtocol.ts) exactly — if you change UUIDs, the control command bytes, or the angle payload layout on either side, update both.
