@@ -46,26 +46,63 @@ export function onDisconnect(listener: () => void): () => void {
 }
 
 /**
+ * Races a promise against a timer so a stalled native BLE call surfaces as
+ * a real error instead of hanging the UI in "Connecting..." forever.
+ * Web Bluetooth's connect can genuinely never settle in some failure modes
+ * — e.g. the OS having separately bonded/paired with the device at the
+ * platform level (Windows Settings > Bluetooth, not this app) conflicting
+ * with the page's own GATT connection attempt.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+const CONNECT_TIMEOUT_MS = 15000;
+const STATUS_READ_TIMEOUT_MS = 5000;
+const TIMEOUT_MESSAGE =
+  'Connection timed out. If this sensor is also paired in your device\'s own Bluetooth settings (not this app), remove/unpair it there first — this app connects directly over Web Bluetooth and an OS-level pairing can block that. Then try again.';
+
+/**
  * Connects and returns whether the firmware's last boot was a brownout
  * reset (see bleProtocol.ts's decodeStatusByte) — the closest available
  * low-power signal given this hardware runs off USB from a power bank with
  * no battery-voltage rail to sense live. Reading the status characteristic
  * is best-effort: an older/mismatched firmware without it shouldn't block
- * a successful connection, so a read failure just reports "no warning"
- * rather than throwing.
+ * a successful connection, so a read failure or timeout just reports "no
+ * warning" rather than throwing.
  */
 export async function connect(): Promise<{ possibleLowPowerReset: boolean }> {
   await ensureInitialized();
   const device = await BleClient.requestDevice({ services: [SERVICE_UUID] });
-  await BleClient.connect(device.deviceId, () => {
-    deviceId = null;
-    disconnectListeners.forEach((listener) => listener());
-  });
+  await withTimeout(
+    BleClient.connect(device.deviceId, () => {
+      deviceId = null;
+      disconnectListeners.forEach((listener) => listener());
+    }),
+    CONNECT_TIMEOUT_MS,
+    TIMEOUT_MESSAGE,
+  );
   deviceId = device.deviceId;
 
   let possibleLowPowerReset = false;
   try {
-    const status = await BleClient.read(device.deviceId, SERVICE_UUID, STATUS_CHAR_UUID);
+    const status = await withTimeout(
+      BleClient.read(device.deviceId, SERVICE_UUID, STATUS_CHAR_UUID),
+      STATUS_READ_TIMEOUT_MS,
+      'status characteristic read timed out',
+    );
     possibleLowPowerReset = decodeStatusByte(status).lastResetWasBrownout;
   } catch (err) {
     console.warn('[ble] could not read status characteristic', err);
