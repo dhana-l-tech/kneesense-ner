@@ -39,7 +39,7 @@ export async function disconnect(): Promise<void> {
   deviceId = null;
 }
 
-/** Sends the calibrate command; firmware zeroes both sensors' angle reference while the leg is held still. */
+/** Sends the calibrate command; firmware zeroes the sensor's angle reference while the leg is held straight and still. */
 export async function calibrate(): Promise<void> {
   if (!deviceId) throw new Error('Not connected to a sensor');
   await BleClient.write(deviceId, SERVICE_UUID, CONTROL_CHAR_UUID, numbersToDataView([CONTROL_CMD.CALIBRATE]));
