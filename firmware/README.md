@@ -37,6 +37,18 @@ Matches [`src/lib/bleProtocol.ts`](../src/lib/bleProtocol.ts) exactly — if you
 - Service UUID `b5b2b8a0-0001-4f0a-9e0a-1a2b3c4d5e6f`
 - Angle characteristic (notify, 8 bytes, little-endian): `uint32 millis`, `float32 angle`
 - Control characteristic (write, 1 byte): `0x01` calibrate, `0x02` start streaming, `0x03` stop streaming
+- Status characteristic (read, 1 byte): bit 0 set = the firmware's *previous* boot was force-reset by the ESP32's brownout detector (input voltage sagged too low) — see "Low-power detection" below. The app reads this once right after connecting, not via notify, since it only changes across a reboot.
+
+## Low-power detection
+
+This board runs off **USB from a power bank**, not a raw LiPo cell wired directly to the ESP32 — confirmed with the project owner. That means there is no battery-voltage rail anywhere on this board for the firmware to read: a power bank just supplies a regulated 5V until it can't anymore, and hides its own internal cell level entirely. True proactive "battery at 20%" monitoring isn't possible with this power architecture without opening the power bank itself, which isn't a reasonable ask.
+
+The one real signal that *is* available at zero extra wiring: the ESP32 has a **hardware brownout detector** that force-resets the chip if the input rail sags too low (a classic symptom of a power bank running low under load). `setup()` checks `esp_reset_reason()` on every boot and remembers if the *previous* boot ended in a brownout, then reports it over the status characteristic above. `SensorPairingPage` in the app shows an amber "possible low-power reset" popup after connecting if this bit is set.
+
+Caveats to know about this approach:
+- **It's retrospective, not live.** You find out after reconnecting, following a reset — not with a countdown while a capture is running. A power bank that fails abruptly mid-capture will instead surface as an ordinary BLE disconnect (see `bleConnection.ts`'s `onDisconnect`), which the app also handles (discards the partial capture, shows a popup).
+- **It only reports the most recent boot.** If the board boots, connects fine, and only later browns out mid-session without a full reset, this bit won't reflect that specific event — a mid-session voltage sag severe enough to matter almost always does cause a reset in practice, but it's not guaranteed.
+- If you want a live, predictive warning instead (e.g. "reconnect now, ~2 minutes of runtime left"), that needs a real hardware change: tap the 5V/VIN rail *before* the ESP32's onboard regulator through a resistor divider into a spare ADC-capable pin (e.g. GPIO34), and have the firmware watch for the rail starting to sag below a threshold rather than waiting for a full brownout reset. Not implemented — flag it if you want this added once the wiring is decided.
 
 ## Single-sensor mode
 

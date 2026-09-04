@@ -671,11 +671,19 @@ button, input, select, textarea {
   width: 52px;
   height: 52px;
   border-radius: 999px;
-  background: var(--color-danger-tint);
-  color: var(--color-danger);
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.modal-icon-badge-danger {
+  background: var(--color-danger-tint);
+  color: var(--color-danger);
+}
+
+.modal-icon-badge-warning {
+  background: var(--color-warning-tint);
+  color: var(--color-warning);
 }
 
 .modal-title {

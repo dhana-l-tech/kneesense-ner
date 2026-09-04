@@ -85,6 +85,9 @@ export const en = {
     'Could not start streaming from the sensor. Check that it is powered on and in range, then try again.',
   'sensorError.goToPairing': 'Go to Sensor Pairing',
   'sensorError.dismiss': 'Dismiss',
+  'sensorError.lowPowerWarningTitle': 'Possible low-power reset',
+  'sensorError.lowPowerWarningMessage':
+    "The sensor's last run was interrupted by a brownout reset (input power sagged too low) — likely the power bank getting low. Check the power bank before starting a screening.",
 
   // ---------------- Knee extension capture ----------------
   'kneeExtension.title': 'Seated knee extension',

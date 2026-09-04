@@ -13,6 +13,11 @@
   other position shifts the whole 0°-reference and throws off every
   downstream ROM/smoothness number.
 
+  Power: this board runs off USB from a power bank, not a raw LiPo cell, so
+  there is no battery-voltage rail to sense directly. The one available
+  low-power signal is the ESP32's own brownout detector — see
+  lastResetWasBrownout / STATUS_CHAR_UUID below.
+
   ---------------------------------------------------------------------
   WIRING
   ---------------------------------------------------------------------
@@ -59,6 +64,7 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include <esp_system.h>
 
 // ---------------- Pins ----------------
 const int PIN_SDA = 21;
@@ -77,13 +83,24 @@ const uint8_t MPU_ADDR = 0x68; // AD0 -> GND
 #define SERVICE_UUID       "b5b2b8a0-0001-4f0a-9e0a-1a2b3c4d5e6f"
 #define ANGLE_CHAR_UUID    "b5b2b8a0-0002-4f0a-9e0a-1a2b3c4d5e6f"
 #define CONTROL_CHAR_UUID  "b5b2b8a0-0003-4f0a-9e0a-1a2b3c4d5e6f"
+#define STATUS_CHAR_UUID   "b5b2b8a0-0004-4f0a-9e0a-1a2b3c4d5e6f"
 
 const uint8_t CMD_CALIBRATE       = 0x01;
 const uint8_t CMD_START_STREAMING = 0x02;
 const uint8_t CMD_STOP_STREAMING  = 0x03;
 
+// Bit 0 of the status byte (see STATUS_CHAR_UUID below).
+const uint8_t STATUS_BIT_LAST_RESET_BROWNOUT = 0x01;
+
 Adafruit_MPU6050 mpu;
 bool sensorOk = false;
+// There's no battery-voltage sensing on this board (USB power bank supply
+// has no exposed cell voltage to read) — the ESP32's own brownout detector
+// is the only available low-power signal: it force-resets the chip if the
+// input rail sags too low, and remembers why on the next boot. This is
+// retrospective (found out after the fact, not a live warning), but it's
+// a real signal at zero extra wiring, unlike a made-up placeholder.
+bool lastResetWasBrownout = false;
 
 // Complementary-filter state. Angle convention matches the app's
 // motionAnalysis.ts: 0deg = leg fully straight (the calibration pose),
@@ -94,6 +111,7 @@ unsigned long lastSampleMicros = 0;
 
 BLECharacteristic *angleChar;
 BLECharacteristic *controlChar;
+BLECharacteristic *statusChar;
 bool deviceConnected = false;
 bool streaming = false;
 
@@ -201,6 +219,13 @@ void setupBle() {
   controlChar = service->createCharacteristic(CONTROL_CHAR_UUID, BLECharacteristic::PROPERTY_WRITE);
   controlChar->setCallbacks(new ControlCallbacks());
 
+  // Read-once status byte — the app reads this right after connecting (see
+  // bleConnection.ts) rather than subscribing to it, since it only changes
+  // across a reboot, not during a session.
+  statusChar = service->createCharacteristic(STATUS_CHAR_UUID, BLECharacteristic::PROPERTY_READ);
+  uint8_t statusByte = lastResetWasBrownout ? STATUS_BIT_LAST_RESET_BROWNOUT : 0x00;
+  statusChar->setValue(&statusByte, 1);
+
   service->start();
   BLEAdvertising *advertising = BLEDevice::getAdvertising();
   advertising->addServiceUUID(SERVICE_UUID);
@@ -211,6 +236,12 @@ void setupBle() {
 
 void setup() {
   Serial.begin(115200);
+
+  lastResetWasBrownout = (esp_reset_reason() == ESP_RST_BROWNOUT);
+  if (lastResetWasBrownout) {
+    Serial.println("Last reset was caused by a brownout (input voltage sagged too low) — check the power bank/USB supply.");
+  }
+
   Wire.begin(PIN_SDA, PIN_SCL);
 
   pinMode(PIN_CALIBRATE_BTN, INPUT); // external pull-down — see wiring notes

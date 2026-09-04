@@ -1,5 +1,13 @@
 import { BleClient, numbersToDataView } from '@capacitor-community/bluetooth-le';
-import { ANGLE_CHAR_UUID, CONTROL_CHAR_UUID, CONTROL_CMD, SERVICE_UUID, decodeAnglePayload } from './bleProtocol';
+import {
+  ANGLE_CHAR_UUID,
+  CONTROL_CHAR_UUID,
+  CONTROL_CMD,
+  SERVICE_UUID,
+  STATUS_CHAR_UUID,
+  decodeAnglePayload,
+  decodeStatusByte,
+} from './bleProtocol';
 import type { SensorSource } from './sensorSource';
 import type { AngleSample } from './motionAnalysis';
 
@@ -37,7 +45,16 @@ export function onDisconnect(listener: () => void): () => void {
   return () => disconnectListeners.delete(listener);
 }
 
-export async function connect(): Promise<void> {
+/**
+ * Connects and returns whether the firmware's last boot was a brownout
+ * reset (see bleProtocol.ts's decodeStatusByte) — the closest available
+ * low-power signal given this hardware runs off USB from a power bank with
+ * no battery-voltage rail to sense live. Reading the status characteristic
+ * is best-effort: an older/mismatched firmware without it shouldn't block
+ * a successful connection, so a read failure just reports "no warning"
+ * rather than throwing.
+ */
+export async function connect(): Promise<{ possibleLowPowerReset: boolean }> {
   await ensureInitialized();
   const device = await BleClient.requestDevice({ services: [SERVICE_UUID] });
   await BleClient.connect(device.deviceId, () => {
@@ -45,6 +62,15 @@ export async function connect(): Promise<void> {
     disconnectListeners.forEach((listener) => listener());
   });
   deviceId = device.deviceId;
+
+  let possibleLowPowerReset = false;
+  try {
+    const status = await BleClient.read(device.deviceId, SERVICE_UUID, STATUS_CHAR_UUID);
+    possibleLowPowerReset = decodeStatusByte(status).lastResetWasBrownout;
+  } catch (err) {
+    console.warn('[ble] could not read status characteristic', err);
+  }
+  return { possibleLowPowerReset };
 }
 
 export async function disconnect(): Promise<void> {

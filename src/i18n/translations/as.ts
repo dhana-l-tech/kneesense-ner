@@ -81,6 +81,9 @@ export const as: Record<MessageKey, string> = {
   'sensorError.startFailedMessage': 'ছেন্সৰৰ পৰা ষ্ট্ৰীমিং আৰম্ভ কৰিব পৰা নগ\'ল। ই অন হৈ আছেনে আৰু পৰিসৰৰ ভিতৰত আছেনে পৰীক্ষা কৰি পুনৰ চেষ্টা কৰক।',
   'sensorError.goToPairing': 'ছেন্সৰ পেয়াৰিঙলৈ যাওক',
   'sensorError.dismiss': 'বন্ধ কৰক',
+  'sensorError.lowPowerWarningTitle': 'সম্ভাৱ্য কম-শক্তি ৰিছেট',
+  'sensorError.lowPowerWarningMessage':
+    'ছেন্সৰৰ শেষ ৰানটো ব্ৰাউনআউট ৰিছেটৰ (ইনপুট শক্তি অতি কম হোৱা) কাৰণে বাধাগ্ৰস্ত হৈছিল — সম্ভৱতঃ পাৱাৰ বেংক কমি আহিছে। স্ক্ৰীনিং আৰম্ভ কৰাৰ আগতে পাৱাৰ বেংক পৰীক্ষা কৰক।',
 
   'kneeExtension.title': 'বহি আঁঠু পোন কৰা',
   'kneeExtension.subtitle': 'ৰোগীক ছেন্সৰ লগাই বহুৱাওক, তাৰ পিছত লাহে লাহে আঁঠু পোন আৰু মোঁহ কৰিবলৈ কওক, ৬–৮ বাৰ।',

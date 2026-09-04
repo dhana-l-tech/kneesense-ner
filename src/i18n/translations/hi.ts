@@ -81,6 +81,9 @@ export const hi: Record<MessageKey, string> = {
   'sensorError.startFailedMessage': 'सेंसर से स्ट्रीमिंग शुरू नहीं हो सकी। जांचें कि यह चालू है और रेंज में है, फिर दोबारा कोशिश करें।',
   'sensorError.goToPairing': 'सेंसर पेयरिंग पर जाएँ',
   'sensorError.dismiss': 'बंद करें',
+  'sensorError.lowPowerWarningTitle': 'संभावित लो-पावर रीसेट',
+  'sensorError.lowPowerWarningMessage':
+    'सेंसर का पिछला सत्र ब्राउनआउट रीसेट (इनपुट पावर बहुत कम होने) के कारण बाधित हुआ था — संभवतः पावर बैंक कम हो रहा है। स्क्रीनिंग शुरू करने से पहले पावर बैंक जांच लें।',
 
   'kneeExtension.title': 'बैठकर घुटना सीधा करना',
   'kneeExtension.subtitle': 'रोगी को सेंसर लगाकर बिठाएँ, फिर स्थिर गति से 6–8 बार घुटना सीधा और मोड़ने को कहें।',

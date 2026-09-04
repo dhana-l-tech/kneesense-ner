@@ -81,6 +81,9 @@ export const bn: Record<MessageKey, string> = {
   'sensorError.startFailedMessage': 'সেন্সর থেকে স্ট্রিমিং শুরু করা যায়নি। এটি চালু আছে ও পরিসরের মধ্যে আছে কিনা পরীক্ষা করে আবার চেষ্টা করুন।',
   'sensorError.goToPairing': 'সেন্সর পেয়ারিং-এ যান',
   'sensorError.dismiss': 'বন্ধ করুন',
+  'sensorError.lowPowerWarningTitle': 'সম্ভাব্য লো-পাওয়ার রিসেট',
+  'sensorError.lowPowerWarningMessage':
+    'সেন্সরের শেষ রান একটি ব্রাউনআউট রিসেটের (ইনপুট পাওয়ার খুব কমে যাওয়া) কারণে বাধাগ্রস্ত হয়েছিল — সম্ভবত পাওয়ার ব্যাংক কমে যাচ্ছে। স্ক্রিনিং শুরু করার আগে পাওয়ার ব্যাংক পরীক্ষা করুন।',
 
   'kneeExtension.title': 'বসে হাঁটু সোজা করা',
   'kneeExtension.subtitle': 'রোগীকে সেন্সর লাগিয়ে বসান, তারপর ধীরে ধীরে হাঁটু সোজা ও ভাঁজ করতে বলুন, ৬–৮ বার।',

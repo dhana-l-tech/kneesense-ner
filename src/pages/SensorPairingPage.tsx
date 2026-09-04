@@ -13,14 +13,16 @@ export default function SensorPairingPage() {
   const { t } = useTranslation()
   const [status, setStatus] = useState<Status>(isConnected() ? 'connected' : 'idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [lowPowerWarning, setLowPowerWarning] = useState(false)
 
   useEffect(() => onDisconnect(() => setStatus('idle')), [])
 
   async function onConnect() {
     setStatus('connecting')
     try {
-      await connect()
+      const { possibleLowPowerReset } = await connect()
       setStatus('connected')
+      if (possibleLowPowerReset) setLowPowerWarning(true)
     } catch (err) {
       setErrorMessage(String(err))
       setStatus('error')
@@ -93,6 +95,16 @@ export default function SensorPairingPage() {
           message={errorMessage}
           primaryLabel={t('sensorError.dismiss')}
           onPrimary={() => setErrorMessage(null)}
+        />
+      )}
+
+      {lowPowerWarning && (
+        <ErrorModal
+          variant="warning"
+          title={t('sensorError.lowPowerWarningTitle')}
+          message={t('sensorError.lowPowerWarningMessage')}
+          primaryLabel={t('sensorError.dismiss')}
+          onPrimary={() => setLowPowerWarning(false)}
         />
       )}
     </main>

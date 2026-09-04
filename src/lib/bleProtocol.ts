@@ -9,6 +9,7 @@
 export const SERVICE_UUID = 'b5b2b8a0-0001-4f0a-9e0a-1a2b3c4d5e6f';
 export const ANGLE_CHAR_UUID = 'b5b2b8a0-0002-4f0a-9e0a-1a2b3c4d5e6f';
 export const CONTROL_CHAR_UUID = 'b5b2b8a0-0003-4f0a-9e0a-1a2b3c4d5e6f';
+export const STATUS_CHAR_UUID = 'b5b2b8a0-0004-4f0a-9e0a-1a2b3c4d5e6f';
 
 export const CONTROL_CMD = {
   CALIBRATE: 0x01,
@@ -28,4 +29,20 @@ export function decodeAnglePayload(value: DataView): { t: number; angle: number 
     t: value.getUint32(0, true),
     angle: value.getFloat32(4, true),
   };
+}
+
+const STATUS_BIT_LAST_RESET_BROWNOUT = 0x01;
+
+/**
+ * Status byte, read once right after connecting (not subscribed to — it
+ * only changes across a firmware reboot). The board runs off USB from a
+ * power bank with no battery-voltage rail to sense directly, so the
+ * ESP32's own brownout detector is the only available low-power signal:
+ * bit 0 set means the firmware's *previous* boot was force-reset because
+ * the input voltage sagged too low. It's retrospective (found out after
+ * the fact, on the next connect), not a live warning during a capture.
+ */
+export function decodeStatusByte(value: DataView): { lastResetWasBrownout: boolean } {
+  const byte = value.getUint8(0);
+  return { lastResetWasBrownout: (byte & STATUS_BIT_LAST_RESET_BROWNOUT) !== 0 };
 }
