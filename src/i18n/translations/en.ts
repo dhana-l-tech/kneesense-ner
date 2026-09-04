@@ -59,7 +59,7 @@ export const en = {
   // ---------------- Sensor pairing ----------------
   'sensorPairing.title': 'Attach & calibrate sensors',
   'sensorPairing.subtitle':
-    'Attach both sensors — outer thigh (8–12 cm above the knee) and outer shin (8–12 cm below the knee), both pointing the same direction, toward the hip.',
+    'Attach the sensor to the outer shin, 8–12 cm below the knee, pointing toward the hip.',
   'sensorPairing.skipNotice':
     'No ESP32 in range? Skip this step — the exercise screens fall back to a simulated signal so you can still test the rest of the app.',
   'sensorPairing.step1': '1. Connect',
@@ -67,7 +67,7 @@ export const en = {
   'sensorPairing.connecting': 'Connecting…',
   'sensorPairing.connected': '✓ Connected',
   'sensorPairing.step2': '2. Calibrate',
-  'sensorPairing.calibrateSubtitle': 'Have the patient hold their leg still, then calibrate.',
+  'sensorPairing.calibrateSubtitle': 'Have the patient straighten their leg fully and hold still, then calibrate.',
   'sensorPairing.calibrate': 'Calibrate',
   'sensorPairing.calibrating': 'Calibrating…',
   'sensorPairing.calibrated': '✓ Calibrated',

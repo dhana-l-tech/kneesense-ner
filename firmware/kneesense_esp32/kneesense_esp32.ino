@@ -1,21 +1,30 @@
 /*
-  KneeSense NER — ESP32 firmware
+  KneeSense NER — ESP32 firmware (single-sensor mode)
 
-  Two MPU6050 IMUs (thigh + shin) -> complementary filter -> knee angle
-  stream over BLE. Matches the app-side protocol in src/lib/bleProtocol.ts —
-  if you change UUIDs or the payload layout, update both sides.
+  One MPU6050 (shin-mounted) -> complementary filter -> knee angle stream
+  over BLE. Matches the app-side protocol in src/lib/bleProtocol.ts — if you
+  change the UUIDs or the payload layout, update both sides.
+
+  Single-sensor convention: the thigh is assumed to stay still during the
+  seated knee-extension test (it rests on the chair), so the app treats the
+  thigh's angle as a fixed 0° reference and computes knee angle directly
+  from this sensor's angle. That assumption only holds if you CALIBRATE
+  WITH THE LEG FULLY STRAIGHT (see calibrate() below) — calibrating at any
+  other position shifts the whole 0°-reference and throws off every
+  downstream ROM/smoothness number.
 
   ---------------------------------------------------------------------
   WIRING
   ---------------------------------------------------------------------
-  ESP32 3.3V   -> VCC of both MPU6050 sensors
-  ESP32 GND    -> GND of both MPU6050 sensors, buzzer -, LED cathode(s),
-                  transistor emitter, calibration button's pull-down leg
-  ESP32 GPIO21 -> SDA of both MPU6050 sensors
-  ESP32 GPIO22 -> SCL of both MPU6050 sensors
+  ESP32 3.3V   -> MPU6050 VCC
+  ESP32 GND    -> MPU6050 GND, buzzer -, LED cathode(s), transistor
+                  emitter, calibration button's pull-down leg
+  ESP32 GPIO21 -> MPU6050 SDA
+  ESP32 GPIO22 -> MPU6050 SCL
 
-  Thigh MPU6050: AD0 -> GND   (I2C address 0x68)
-  Shin  MPU6050: AD0 -> 3.3V  (I2C address 0x69)
+  MPU6050: AD0 -> GND (I2C address 0x68), strapped to the outer shin,
+    8-12cm below the knee, pointing toward the hip (same orientation the
+    app's pairing screen instructs for a patient).
 
   Calibration button: one leg -> 3.3V, other leg -> GPIO4 AND -> 10k
     resistor -> GND (external pull-down; button press reads HIGH)
@@ -61,9 +70,8 @@ const int PIN_LED_B = 27;
 const int PIN_BUZZER = 32;
 const int PIN_MOTOR = 33;
 
-// ---------------- I2C addresses ----------------
-const uint8_t THIGH_ADDR = 0x68; // AD0 -> GND
-const uint8_t SHIN_ADDR  = 0x69; // AD0 -> 3.3V
+// ---------------- I2C address ----------------
+const uint8_t MPU_ADDR = 0x68; // AD0 -> GND
 
 // ---------------- BLE protocol (see src/lib/bleProtocol.ts) ----------------
 #define SERVICE_UUID       "b5b2b8a0-0001-4f0a-9e0a-1a2b3c4d5e6f"
@@ -74,17 +82,14 @@ const uint8_t CMD_CALIBRATE       = 0x01;
 const uint8_t CMD_START_STREAMING = 0x02;
 const uint8_t CMD_STOP_STREAMING  = 0x03;
 
-Adafruit_MPU6050 thighMpu;
-Adafruit_MPU6050 shinMpu;
-bool thighOk = false;
-bool shinOk = false;
+Adafruit_MPU6050 mpu;
+bool sensorOk = false;
 
 // Complementary-filter state. Angle convention matches the app's
-// motionAnalysis.ts: this is orientation from vertical, in degrees — NOT
-// knee flexion itself. The app computes knee angle as |shinAngle -
-// thighAngle| on its side, from the raw thigh/shin values streamed here.
-float thighAngle = 0, shinAngle = 0;
-float thighGyroBiasRadS = 0, shinGyroBiasRadS = 0;
+// motionAnalysis.ts: 0deg = leg fully straight (the calibration pose),
+// larger = more bent.
+float shinAngle = 0;
+float gyroBiasRadS = 0;
 unsigned long lastSampleMicros = 0;
 
 BLECharacteristic *angleChar;
@@ -117,38 +122,36 @@ void buzzVibrate(int ms) {
 // Pitch around the mediolateral (side-to-side) axis, from the
 // accelerometer alone — noisy but drift-free. This is the axis a
 // side-strapped sensor rotates around during knee flexion/extension.
-// If your sensors are mounted with a different face outward, you may
-// need to swap which accel axis feeds this (and the matching gyro axis
-// below) — check with the calibration LED + a slow known motion.
+// If your sensor is mounted with a different face outward, you may need
+// to swap which accel axis feeds this (and the matching gyro axis below)
+// — check with the calibration LED + a slow known motion.
 float accelPitchDeg(sensors_event_t &a) {
   return atan2(a.acceleration.y, sqrt(a.acceleration.x * a.acceleration.x + a.acceleration.z * a.acceleration.z)) * 180.0 / PI;
 }
 
-// Calibrates while the leg is held still: takes the accelerometer's
-// current reading as the zero reference for the complementary filter,
-// and measures each gyro's stationary bias so it doesn't integrate a
-// slow drift over a multi-minute screening session.
+// Calibrates while the leg is held straight and still: takes the
+// accelerometer's current reading as the zero (= fully-extended) reference
+// for the complementary filter, and measures the gyro's stationary bias so
+// it doesn't integrate a slow drift over a multi-minute screening session.
+// MUST be run with the leg fully extended — the app computes knee angle
+// directly from this sensor's angle, so whatever pose it's calibrated in
+// becomes "0 degrees" for the rest of the capture.
 void calibrate() {
   setColor(true, false, false); // red = calibrating, don't move
   const int N = 100;
-  float thighSum = 0, shinSum = 0;
-  float thighGyroSum = 0, shinGyroSum = 0;
+  float angleSum = 0;
+  float gyroSum = 0;
 
   for (int i = 0; i < N; i++) {
-    sensors_event_t ta, tg, ttemp, sa, sg, stemp;
-    thighMpu.getEvent(&ta, &tg, &ttemp);
-    shinMpu.getEvent(&sa, &sg, &stemp);
-    thighSum += accelPitchDeg(ta);
-    shinSum  += accelPitchDeg(sa);
-    thighGyroSum += tg.gyro.y;
-    shinGyroSum  += sg.gyro.y;
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    angleSum += accelPitchDeg(a);
+    gyroSum += g.gyro.y;
     delay(10);
   }
 
-  thighAngle = thighSum / N;
-  shinAngle = shinSum / N;
-  thighGyroBiasRadS = thighGyroSum / N;
-  shinGyroBiasRadS = shinGyroSum / N;
+  shinAngle = angleSum / N;
+  gyroBiasRadS = gyroSum / N;
   lastSampleMicros = micros();
 
   setColor(false, true, false); // green = calibrated / ready
@@ -218,50 +221,43 @@ void setup() {
   pinMode(PIN_MOTOR, OUTPUT);
   setColor(false, false, true); // blue = starting up
 
-  thighOk = thighMpu.begin(THIGH_ADDR);
-  shinOk = shinMpu.begin(SHIN_ADDR);
-  if (!thighOk) Serial.println("Thigh MPU6050 (0x68) not found — check wiring/AD0");
-  if (!shinOk) Serial.println("Shin MPU6050 (0x69) not found — check wiring/AD0");
+  sensorOk = mpu.begin(MPU_ADDR);
+  if (!sensorOk) Serial.println("MPU6050 (0x68) not found — check wiring/AD0");
 
-  if (!thighOk || !shinOk) {
-    // Solid red = a sensor didn't respond. Fix wiring and reset the board.
+  if (!sensorOk) {
+    // Solid red = the sensor didn't respond. Fix wiring and reset the board.
     setColor(true, false, false);
-  }
-
-  for (Adafruit_MPU6050 *mpu : { &thighMpu, &shinMpu }) {
-    mpu->setAccelerometerRange(MPU6050_RANGE_4_G);
-    mpu->setGyroRange(MPU6050_RANGE_500_DEG);
-    mpu->setFilterBandwidth(MPU6050_BAND_21_HZ);
+  } else {
+    mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
+    mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+    mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
   }
 
   setupBle();
 
-  if (thighOk && shinOk) {
-    calibrate(); // initial calibration; re-run any time via the button or a BLE 0x01 command
+  if (sensorOk) {
+    calibrate(); // initial calibration (leg must be straight); re-run any time via the button or a BLE 0x01 command
   }
 }
 
 void loop() {
   static bool lastBtn = LOW;
   bool btn = digitalRead(PIN_CALIBRATE_BTN);
-  if (btn == HIGH && lastBtn == LOW && thighOk && shinOk) {
+  if (btn == HIGH && lastBtn == LOW && sensorOk) {
     calibrate();
   }
   lastBtn = btn;
 
-  if (!streaming || !deviceConnected || !thighOk || !shinOk) return;
+  if (!streaming || !deviceConnected || !sensorOk) return;
 
   unsigned long now = micros();
   float dt = (now - lastSampleMicros) / 1000000.0;
   if (dt < 0.02) return; // ~50 Hz cap
   lastSampleMicros = now;
 
-  sensors_event_t ta, tg, ttemp, sa, sg, stemp;
-  thighMpu.getEvent(&ta, &tg, &ttemp);
-  shinMpu.getEvent(&sa, &sg, &stemp);
-
-  float thighAccelAngle = accelPitchDeg(ta);
-  float shinAccelAngle = accelPitchDeg(sa);
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+  float accelAngle = accelPitchDeg(a);
 
   // Complementary filter: mostly trust the integrated (bias-corrected)
   // gyro rate for smooth, low-latency motion, and slowly pull toward the
@@ -270,14 +266,14 @@ void loop() {
   // — raise it for smoother-but-slower drift correction, lower it if the
   // angle visibly drifts during a long capture.
   const float ALPHA = 0.98;
-  thighAngle = ALPHA * (thighAngle + (tg.gyro.y - thighGyroBiasRadS) * dt * 180.0 / PI) + (1 - ALPHA) * thighAccelAngle;
-  shinAngle  = ALPHA * (shinAngle  + (sg.gyro.y - shinGyroBiasRadS) * dt * 180.0 / PI) + (1 - ALPHA) * shinAccelAngle;
+  shinAngle = ALPHA * (shinAngle + (g.gyro.y - gyroBiasRadS) * dt * 180.0 / PI) + (1 - ALPHA) * accelAngle;
 
-  uint8_t payload[12];
+  // 8-byte payload: uint32 millis-since-boot, float32 angle (see
+  // src/lib/bleProtocol.ts — single-sensor mode dropped the second float).
+  uint8_t payload[8];
   uint32_t t = millis();
   memcpy(payload, &t, 4);
-  memcpy(payload + 4, &thighAngle, 4);
-  memcpy(payload + 8, &shinAngle, 4);
-  angleChar->setValue(payload, 12);
+  memcpy(payload + 4, &shinAngle, 4);
+  angleChar->setValue(payload, 8);
   angleChar->notify();
 }

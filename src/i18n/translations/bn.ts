@@ -56,7 +56,7 @@ export const bn: Record<MessageKey, string> = {
 
   'sensorPairing.title': 'সেন্সর লাগান ও ক্যালিব্রেট করুন',
   'sensorPairing.subtitle':
-    'দুটি সেন্সরই লাগান — উরুর বাইরের দিকে (হাঁটুর ৮–১২ সেমি ওপরে) এবং পায়ের নলার বাইরের দিকে (হাঁটুর ৮–১২ সেমি নিচে), দুটোই একই দিকে অর্থাৎ কোমরের দিকে মুখ করে।',
+    'সেন্সরটি পায়ের নলার বাইরের দিকে লাগান (হাঁটুর ৮–১২ সেমি নিচে), কোমরের দিকে মুখ করে।',
   'sensorPairing.skipNotice':
     'কাছে কোনো ESP32 নেই? এই ধাপ বাদ দিন — অনুশীলন স্ক্রিনগুলো একটি সিমুলেটেড সংকেত ব্যবহার করবে, যাতে আপনি বাকি অ্যাপটি পরীক্ষা করতে পারেন।',
   'sensorPairing.step1': '১. সংযোগ করুন',
@@ -64,7 +64,7 @@ export const bn: Record<MessageKey, string> = {
   'sensorPairing.connecting': 'সংযোগ হচ্ছে…',
   'sensorPairing.connected': '✓ সংযুক্ত হয়েছে',
   'sensorPairing.step2': '২. ক্যালিব্রেট করুন',
-  'sensorPairing.calibrateSubtitle': 'রোগীর পা স্থির রাখুন, তারপর ক্যালিব্রেট করুন।',
+  'sensorPairing.calibrateSubtitle': 'রোগীর পা সম্পূর্ণ সোজা করে স্থির রাখুন, তারপর ক্যালিব্রেট করুন।',
   'sensorPairing.calibrate': 'ক্যালিব্রেট করুন',
   'sensorPairing.calibrating': 'ক্যালিব্রেট হচ্ছে…',
   'sensorPairing.calibrated': '✓ ক্যালিব্রেট হয়েছে',

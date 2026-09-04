@@ -56,7 +56,7 @@ export const as: Record<MessageKey, string> = {
 
   'sensorPairing.title': 'ছেন্সৰ লগাওক আৰু কেলিব্ৰেট কৰক',
   'sensorPairing.subtitle':
-    'দুয়োটা ছেন্সৰেই লগাওক — কৰঙণৰ বাহিৰফালে (আঁঠুৰ ৮–১২ ছেঃমিঃ ওপৰত) আৰু ভৰিৰ নলাৰ বাহিৰফালে (আঁঠুৰ ৮–১২ ছেঃমিঃ তলত), দুয়োটাই একেদিশে অৰ্থাৎ কঁকালৰ ফাললৈ মুখ কৰি।',
+    'ছেন্সৰটো ভৰিৰ নলাৰ বাহিৰফালে লগাওক (আঁঠুৰ ৮–১২ ছেঃমিঃ তলত), কঁকালৰ ফাললৈ মুখ কৰি।',
   'sensorPairing.skipNotice':
     'ওচৰত কোনো ESP32 নাই নেকি? এই পদক্ষেপ বাদ দিয়ক — অনুশীলন স্ক্ৰীনসমূহে এটা ছিমুলেটেড ছিগন্যাল ব্যৱহাৰ কৰিব, যাতে আপুনি বাকী এপ্‌টো পৰীক্ষা কৰিব পাৰে।',
   'sensorPairing.step1': '১. সংযোগ কৰক',
@@ -64,7 +64,7 @@ export const as: Record<MessageKey, string> = {
   'sensorPairing.connecting': 'সংযোগ হৈ আছে…',
   'sensorPairing.connected': '✓ সংযুক্ত হৈছে',
   'sensorPairing.step2': '২. কেলিব্ৰেট কৰক',
-  'sensorPairing.calibrateSubtitle': 'ৰোগীৰ ভৰি স্থিৰ ৰাখক, তাৰ পিছত কেলিব্ৰেট কৰক।',
+  'sensorPairing.calibrateSubtitle': 'ৰোগীৰ ভৰি সম্পূৰ্ণৰূপে পোন কৰি স্থিৰ ৰাখক, তাৰ পিছত কেলিব্ৰেট কৰক।',
   'sensorPairing.calibrate': 'কেলিব্ৰেট কৰক',
   'sensorPairing.calibrating': 'কেলিব্ৰেট হৈ আছে…',
   'sensorPairing.calibrated': '✓ কেলিব্ৰেট হৈছে',

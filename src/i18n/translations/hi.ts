@@ -56,7 +56,7 @@ export const hi: Record<MessageKey, string> = {
 
   'sensorPairing.title': 'सेंसर लगाएँ और कैलिब्रेट करें',
   'sensorPairing.subtitle':
-    'दोनों सेंसर लगाएँ — जांघ के बाहरी हिस्से पर (घुटने से 8–12 सेमी ऊपर) और पिंडली के बाहरी हिस्से पर (घुटने से 8–12 सेमी नीचे), दोनों एक ही दिशा में यानी कूल्हे की ओर।',
+    'सेंसर लगाएँ — पिंडली के बाहरी हिस्से पर (घुटने से 8–12 सेमी नीचे), कूल्हे की ओर मुख करके।',
   'sensorPairing.skipNotice':
     'पास में कोई ESP32 नहीं है? यह चरण छोड़ दें — व्यायाम स्क्रीन एक सिम्युलेटेड सिग्नल पर वापस चली जाएँगी ताकि आप बाकी ऐप जांच सकें।',
   'sensorPairing.step1': '1. कनेक्ट करें',
@@ -64,7 +64,7 @@ export const hi: Record<MessageKey, string> = {
   'sensorPairing.connecting': 'कनेक्ट हो रहा है…',
   'sensorPairing.connected': '✓ कनेक्टेड',
   'sensorPairing.step2': '2. कैलिब्रेट करें',
-  'sensorPairing.calibrateSubtitle': 'रोगी का पैर स्थिर रखवाएँ, फिर कैलिब्रेट करें।',
+  'sensorPairing.calibrateSubtitle': 'रोगी का पैर पूरी तरह सीधा करवाएँ और स्थिर रखवाएँ, फिर कैलिब्रेट करें।',
   'sensorPairing.calibrate': 'कैलिब्रेट करें',
   'sensorPairing.calibrating': 'कैलिब्रेट हो रहा है…',
   'sensorPairing.calibrated': '✓ कैलिब्रेटेड',

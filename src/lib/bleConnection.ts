@@ -56,7 +56,14 @@ export function createBleSensorSource(): SensorSource {
       if (!deviceId) throw new Error('Not connected to a sensor');
       const id = deviceId;
       BleClient.startNotifications(id, SERVICE_UUID, ANGLE_CHAR_UUID, (value) => {
-        onSample(decodeAnglePayload(value));
+        const { t, angle } = decodeAnglePayload(value);
+        // Single-sensor hardware (shin-mounted): the thigh is assumed to
+        // stay still during seated knee extension (it rests on the chair),
+        // so its angle is fixed at the calibrated 0deg reference and knee
+        // angle reduces to |shinAngle - 0| = shinAngle in motionAnalysis.ts.
+        // This assumption does NOT hold for sit-to-stand (the thigh does
+        // most of that motion) — see firmware/README.md.
+        onSample({ t, thighAngle: 0, shinAngle: angle });
       })
         .then(() => BleClient.write(id, SERVICE_UUID, CONTROL_CHAR_UUID, numbersToDataView([CONTROL_CMD.START_STREAMING])))
         .catch((err) => console.error('[ble] failed to start streaming', err));
