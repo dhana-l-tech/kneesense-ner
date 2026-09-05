@@ -234,10 +234,12 @@ void calibrate() {
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer *server) override {
     deviceConnected = true;
+    Serial.println("BLE central connected.");
   }
   void onDisconnect(BLEServer *server) override {
     deviceConnected = false;
     streaming = false;
+    Serial.println("BLE central disconnected — resuming advertising.");
     server->getAdvertising()->start(); // resume advertising so the app can reconnect
   }
 };
@@ -294,6 +296,7 @@ void setupBle() {
   BLEAdvertising *advertising = BLEDevice::getAdvertising();
   advertising->addServiceUUID(SERVICE_UUID);
   advertising->start();
+  Serial.println("BLE advertising started as \"" BLE_DEVICE_NAME "\".");
 }
 
 // ---------------- Setup / loop ----------------
