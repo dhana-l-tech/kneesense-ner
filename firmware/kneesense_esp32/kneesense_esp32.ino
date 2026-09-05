@@ -264,14 +264,14 @@ class ControlCallbacks : public BLECharacteristicCallbacks {
 
 // A legacy BLE advertising packet is capped at 31 bytes total. Flags (3
 // bytes) + our 128-bit service UUID (2-byte header + 16 bytes = 18 bytes)
-// already use 21 of those — "KneeSense-NER" as the device name would need
-// 15 more (36 total, over the limit), which can make the ESP32 BLE stack
-// silently drop or split the service UUID out of the primary advertisement.
-// Since the app's requestDevice({services:[SERVICE_UUID]}) filters ON that
-// UUID, a device broadcasting it outside the primary packet may just never
-// show up in the picker even though it's genuinely in range and powered on.
-// Keep this short enough that everything fits in one packet with margin.
-#define BLE_DEVICE_NAME "KS-NER"
+// + "kneesense" as the name (2-byte header + 9 bytes = 11 bytes) adds up to
+// 32 bytes -- one over the limit. Rather than shorten the name again, the
+// name goes in the primary advertising packet and the service UUID goes in
+// the separate scan-response packet. Active BLE scans (which is what Web
+// Bluetooth on Android/desktop Chrome always performs) request the scan
+// response too, so the app's requestDevice({services:[SERVICE_UUID]})
+// filter still matches -- it just reads the UUID from the second packet.
+#define BLE_DEVICE_NAME "kneesense"
 
 void setupBle() {
   BLEDevice::init(BLE_DEVICE_NAME);
@@ -293,8 +293,18 @@ void setupBle() {
   statusChar->setValue(&statusByte, 1);
 
   service->start();
+
+  BLEAdvertisementData advData;
+  advData.setFlags(0x06); // BR/EDR not supported, general discoverable
+  advData.setName(BLE_DEVICE_NAME);
+
+  BLEAdvertisementData scanRespData;
+  scanRespData.setCompleteServices(BLEUUID(SERVICE_UUID));
+
   BLEAdvertising *advertising = BLEDevice::getAdvertising();
-  advertising->addServiceUUID(SERVICE_UUID);
+  advertising->setAdvertisementData(advData);
+  advertising->setScanResponseData(scanRespData);
+  advertising->setScanResponse(true);
   advertising->start();
   Serial.println("BLE advertising started as \"" BLE_DEVICE_NAME "\".");
 }
