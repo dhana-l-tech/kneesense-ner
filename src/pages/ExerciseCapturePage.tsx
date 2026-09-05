@@ -121,7 +121,12 @@ export default function ExerciseCapturePage() {
   }
 
   function onStart() {
-    if (!isSensorConnected()) {
+    const sensorConnected = isSensorConnected()
+    // The camera is a separate, genuinely working input — it shouldn't be
+    // blocked just because the IMU sensor is unavailable. Only refuse to
+    // start when there's neither a sensor NOR a camera, since then there'd
+    // be nothing to capture at all.
+    if (!sensorConnected && !useCamera) {
       setSensorErrorModal({ title: t('sensorError.notConnectedTitle'), message: t('sensorError.notConnectedMessage') })
       return
     }
@@ -135,15 +140,21 @@ export default function ExerciseCapturePage() {
     setLiveConfidence(null)
     startTimeRef.current = new Date().toISOString()
 
-    const source = createBleSensorSource()
-    sourceRef.current = source
-    source.start(
-      (sample) => {
-        samplesRef.current.push(sample)
-        setSampleCount(samplesRef.current.length)
-      },
-      () => handleSensorError(t('sensorError.startFailedMessage')),
-    )
+    if (sensorConnected) {
+      const source = createBleSensorSource()
+      sourceRef.current = source
+      source.start(
+        (sample) => {
+          samplesRef.current.push(sample)
+          setSampleCount(samplesRef.current.length)
+        },
+        () => handleSensorError(t('sensorError.startFailedMessage')),
+      )
+    }
+    // No sensor connected but camera is on: samplesRef stays empty, so
+    // onStop() below naturally skips saving an exercise capture (no fake
+    // IMU data, nothing persisted) — this is a live camera preview/test
+    // only, not a real screening capture, until the sensor is reconnected.
 
     if (useCamera && videoRef.current) {
       cameraSamplesRef.current = []
