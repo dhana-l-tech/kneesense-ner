@@ -58,7 +58,7 @@ export const bn: Record<MessageKey, string> = {
   'sensorPairing.subtitle':
     'সেন্সরটি পায়ের নলার বাইরের দিকে লাগান (হাঁটুর ৮–১২ সেমি নিচে), কোমরের দিকে মুখ করে।',
   'sensorPairing.skipNotice':
-    'কাছে কোনো ESP32 নেই? আপনি এই ধাপ বাদ দিতে পারেন, তবে অনুশীলন স্ক্রিনগুলো রেকর্ডিং শুরুর আগে সেন্সর সংযোগ করতে বলবে — কোনো সিমুলেটেড বিকল্প নেই।',
+    'কাছে কোনো ESP32 নেই? এই ধাপ বাদ দিন — অনুশীলন স্ক্রিনগুলো একটি সিমুলেটেড সংকেত ব্যবহার করবে, যাতে আপনি বাকি অ্যাপটি পরীক্ষা করতে পারেন।',
   'sensorPairing.step1': '১. সংযোগ করুন',
   'sensorPairing.connect': 'ESP32-তে সংযোগ করুন',
   'sensorPairing.connecting': 'সংযোগ হচ্ছে…',
@@ -88,7 +88,7 @@ export const bn: Record<MessageKey, string> = {
   'kneeExtension.title': 'বসে হাঁটু সোজা করা',
   'kneeExtension.subtitle': 'রোগীকে সেন্সর লাগিয়ে বসান, তারপর ধীরে ধীরে হাঁটু সোজা ও ভাঁজ করতে বলুন, ৬–৮ বার।',
   'kneeExtension.sensorConnected': '✓ ESP32 সংযুক্ত — লাইভ সেন্সর তথ্য ব্যবহার হচ্ছে।',
-  'kneeExtension.sensorNotConnected': 'কোনো ESP32 সংযুক্ত নেই। ক্যাপচার শুরু করার আগে সেন্সর পেয়ারিং-এ যান।',
+  'kneeExtension.sensorSimulated': 'এখনো কোনো ESP32 যুক্ত হয়নি — সিমুলেটেড সংকেত ব্যবহার হচ্ছে, যাতে প্রক্রিয়াটি পরীক্ষা করা যায়।',
   'kneeExtension.enableCamera': 'ক্যামেরা ক্রস-চেক চালু করুন (ঐচ্ছিক)',
   'kneeExtension.cameraEnabled': '✓ ক্যামেরা ক্রস-চেক চালু আছে',
   'kneeExtension.startCapture': 'রেকর্ডিং শুরু করুন',

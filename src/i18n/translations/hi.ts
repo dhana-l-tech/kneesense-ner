@@ -58,7 +58,7 @@ export const hi: Record<MessageKey, string> = {
   'sensorPairing.subtitle':
     'सेंसर लगाएँ — पिंडली के बाहरी हिस्से पर (घुटने से 8–12 सेमी नीचे), कूल्हे की ओर मुख करके।',
   'sensorPairing.skipNotice':
-    'पास में कोई ESP32 नहीं है? आप यह चरण छोड़ सकते हैं, लेकिन व्यायाम स्क्रीन रिकॉर्डिंग शुरू करने से पहले सेंसर कनेक्ट करने को कहेंगी — कोई सिम्युलेटेड विकल्प नहीं है।',
+    'पास में कोई ESP32 नहीं है? यह चरण छोड़ दें — व्यायाम स्क्रीन एक सिम्युलेटेड सिग्नल पर वापस चली जाएँगी ताकि आप बाकी ऐप जांच सकें।',
   'sensorPairing.step1': '1. कनेक्ट करें',
   'sensorPairing.connect': 'ESP32 से कनेक्ट करें',
   'sensorPairing.connecting': 'कनेक्ट हो रहा है…',
@@ -88,7 +88,7 @@ export const hi: Record<MessageKey, string> = {
   'kneeExtension.title': 'बैठकर घुटना सीधा करना',
   'kneeExtension.subtitle': 'रोगी को सेंसर लगाकर बिठाएँ, फिर स्थिर गति से 6–8 बार घुटना सीधा और मोड़ने को कहें।',
   'kneeExtension.sensorConnected': '✓ ESP32 कनेक्टेड — लाइव सेंसर डेटा उपयोग हो रहा है।',
-  'kneeExtension.sensorNotConnected': 'कोई ESP32 कनेक्ट नहीं है। कैप्चर शुरू करने से पहले सेंसर पेयरिंग पर जाएँ।',
+  'kneeExtension.sensorSimulated': 'अभी तक कोई ESP32 जुड़ा नहीं है — सिम्युलेटेड सिग्नल उपयोग हो रहा है ताकि पूरी प्रक्रिया जांची जा सके।',
   'kneeExtension.enableCamera': 'कैमरा क्रॉस-चेक चालू करें (वैकल्पिक)',
   'kneeExtension.cameraEnabled': '✓ कैमरा क्रॉस-चेक चालू है',
   'kneeExtension.startCapture': 'रिकॉर्डिंग शुरू करें',

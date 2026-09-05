@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { computeAndSaveRiskScore, SimulatedCaptureError } from '../db/repositories/riskScores'
+import { computeAndSaveRiskScore } from '../db/repositories/riskScores'
 import { generateReport } from '../db/repositories/reports'
 import { useTranslation } from '../i18n/I18nContext'
 import { Icon, type IconName } from '../components/Icon'
@@ -28,7 +28,6 @@ export default function ResultsPage() {
   const { t } = useTranslation()
   const [breakdown, setBreakdown] = useState<RiskScoreBreakdown | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [simulatedDataBlocked, setSimulatedDataBlocked] = useState(false)
   const [reportStatus, setReportStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle')
   const [reportInfo, setReportInfo] = useState<string | null>(null)
 
@@ -36,34 +35,8 @@ export default function ResultsPage() {
     if (!sessionId) return
     computeAndSaveRiskScore(sessionId)
       .then((row) => setBreakdown(row.breakdown))
-      .catch((err) => {
-        if (err instanceof SimulatedCaptureError) setSimulatedDataBlocked(true)
-        else setError(String(err))
-      })
+      .catch((err) => setError(String(err)))
   }, [sessionId])
-
-  if (simulatedDataBlocked) {
-    return (
-      <main className="page">
-        <div className="page-header-row">
-          <div className="page-icon-badge" style={{ background: 'var(--color-warning-tint)', color: 'var(--color-warning)' }}>
-            <Icon name="alert-triangle" size={22} />
-          </div>
-          <div className="page-header">
-            <h1 className="page-title">{t('results.simulatedDataTitle')}</h1>
-          </div>
-        </div>
-        <p className="card-info">{t('results.simulatedDataMessage')}</p>
-        <button
-          type="button"
-          onClick={() => navigate(`/session/${sessionId}/exercise`)}
-          className="btn btn-primary btn-lg btn-block"
-        >
-          {t('results.recaptureButton')}
-        </button>
-      </main>
-    )
-  }
 
   if (error) {
     return (

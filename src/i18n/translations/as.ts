@@ -58,7 +58,7 @@ export const as: Record<MessageKey, string> = {
   'sensorPairing.subtitle':
     'ছেন্সৰটো ভৰিৰ নলাৰ বাহিৰফালে লগাওক (আঁঠুৰ ৮–১২ ছেঃমিঃ তলত), কঁকালৰ ফাললৈ মুখ কৰি।',
   'sensorPairing.skipNotice':
-    'ওচৰত কোনো ESP32 নাই নেকি? আপুনি এই পদক্ষেপ বাদ দিব পাৰে, কিন্তু অনুশীলন স্ক্ৰীনসমূহে ৰেকৰ্ডিং আৰম্ভ কৰাৰ আগতে ছেন্সৰ সংযোগ কৰিবলৈ কব — কোনো ছিমুলেটেড বিকল্প নাই।',
+    'ওচৰত কোনো ESP32 নাই নেকি? এই পদক্ষেপ বাদ দিয়ক — অনুশীলন স্ক্ৰীনসমূহে এটা ছিমুলেটেড ছিগন্যাল ব্যৱহাৰ কৰিব, যাতে আপুনি বাকী এপ্‌টো পৰীক্ষা কৰিব পাৰে।',
   'sensorPairing.step1': '১. সংযোগ কৰক',
   'sensorPairing.connect': 'ESP32-লৈ সংযোগ কৰক',
   'sensorPairing.connecting': 'সংযোগ হৈ আছে…',
@@ -88,7 +88,7 @@ export const as: Record<MessageKey, string> = {
   'kneeExtension.title': 'বহি আঁঠু পোন কৰা',
   'kneeExtension.subtitle': 'ৰোগীক ছেন্সৰ লগাই বহুৱাওক, তাৰ পিছত লাহে লাহে আঁঠু পোন আৰু মোঁহ কৰিবলৈ কওক, ৬–৮ বাৰ।',
   'kneeExtension.sensorConnected': '✓ ESP32 সংযুক্ত — লাইভ ছেন্সৰ তথ্য ব্যৱহাৰ হৈ আছে।',
-  'kneeExtension.sensorNotConnected': 'কোনো ESP32 সংযুক্ত নাই। কেপচাৰ আৰম্ভ কৰাৰ আগতে ছেন্সৰ পেয়াৰিঙলৈ যাওক।',
+  'kneeExtension.sensorSimulated': 'এতিয়াও কোনো ESP32 যুক্ত হোৱা নাই — ছিমুলেটেড ছিগন্যাল ব্যৱহাৰ হৈ আছে, যাতে প্ৰক্ৰিয়াটো পৰীক্ষা কৰিব পাৰি।',
   'kneeExtension.enableCamera': 'কেমেৰা ক্ৰছ-চেক অন কৰক (ঐচ্ছিক)',
   'kneeExtension.cameraEnabled': '✓ কেমেৰা ক্ৰছ-চেক অন আছে',
   'kneeExtension.startCapture': 'ৰেকৰ্ডিং আৰম্ভ কৰক',

@@ -61,7 +61,7 @@ export const en = {
   'sensorPairing.subtitle':
     'Attach the sensor to the outer shin, 8–12 cm below the knee, pointing toward the hip.',
   'sensorPairing.skipNotice':
-    'No ESP32 in range? You can skip this step, but the exercise screens will ask you to connect a sensor before they let you start a capture — there is no simulated fallback.',
+    'No ESP32 in range? Skip this step — the exercise screens fall back to a simulated signal so you can still test the rest of the app.',
   'sensorPairing.step1': '1. Connect',
   'sensorPairing.connect': 'Connect to ESP32',
   'sensorPairing.connecting': 'Connecting…',
@@ -94,7 +94,7 @@ export const en = {
   'kneeExtension.subtitle':
     'Have the patient sit with the sensor attached, then extend and bend the knee at a steady pace for 6–8 repetitions.',
   'kneeExtension.sensorConnected': '✓ ESP32 connected — using live sensor data.',
-  'kneeExtension.sensorNotConnected': 'No ESP32 connected. Go to Sensor Pairing before starting a capture.',
+  'kneeExtension.sensorSimulated': 'No ESP32 connected — using a simulated signal so the flow can still be tested end-to-end.',
   'kneeExtension.enableCamera': 'Enable camera cross-check (optional)',
   'kneeExtension.cameraEnabled': '✓ Camera cross-check enabled',
   'kneeExtension.startCapture': 'Start capture',

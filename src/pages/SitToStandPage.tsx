@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { saveExerciseCapture } from '../db/repositories/exerciseCaptures'
 import { createBleSensorSource, isConnected as isSensorConnected, onDisconnect } from '../lib/bleConnection'
-import type { SensorSource } from '../lib/sensorSource'
+import { SimulatedSitToStandSource, type SensorSource } from '../lib/sensorSource'
 import { useTranslation } from '../i18n/I18nContext'
 import { Icon } from '../components/Icon'
 import { ErrorModal } from '../components/ErrorModal'
@@ -24,6 +24,7 @@ export default function SitToStandPage() {
   const sourceRef = useRef<SensorSource | null>(null)
   const samplesRef = useRef<AngleSample[]>([])
   const startTimeRef = useRef<string>('')
+  const dataSourceRef = useRef<'ble' | 'simulated'>('simulated')
 
   useEffect(
     () =>
@@ -44,18 +45,16 @@ export default function SitToStandPage() {
   }
 
   function onStart() {
-    if (!isSensorConnected()) {
-      setSensorErrorModal({ title: t('sensorError.notConnectedTitle'), message: t('sensorError.notConnectedMessage') })
-      return
-    }
+    const sensorConnected = isSensorConnected()
 
     samplesRef.current = []
     setSampleCount(0)
     setResult(null)
     startTimeRef.current = new Date().toISOString()
 
-    const source = createBleSensorSource()
+    const source = sensorConnected ? createBleSensorSource() : new SimulatedSitToStandSource()
     sourceRef.current = source
+    dataSourceRef.current = sensorConnected ? 'ble' : 'simulated'
     source.start(
       (sample) => {
         samplesRef.current.push(sample)
@@ -81,7 +80,7 @@ export default function SitToStandPage() {
       startTime: startTimeRef.current,
       endTime: new Date().toISOString(),
       samples: samplesRef.current,
-      dataSource: 'ble',
+      dataSource: dataSourceRef.current,
     })
     setResult(capture)
     setPhase('done')
@@ -143,7 +142,7 @@ export default function SitToStandPage() {
           </div>
         </div>
         <p className="card-info">
-          {isSensorConnected() ? t('kneeExtension.sensorConnected') : t('kneeExtension.sensorNotConnected')}
+          {isSensorConnected() ? t('kneeExtension.sensorConnected') : t('kneeExtension.sensorSimulated')}
         </p>
         <button type="button" onClick={onStart} className="btn btn-primary btn-lg btn-block">
           {t('kneeExtension.startCapture')}

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { saveExerciseCapture } from '../db/repositories/exerciseCaptures'
 import { saveCameraFeatures } from '../db/repositories/cameraFeatures'
 import { getSession } from '../db/repositories/sessions'
-import type { SensorSource } from '../lib/sensorSource'
+import { SimulatedKneeExtensionSource, type SensorSource } from '../lib/sensorSource'
 import { createBleSensorSource, isConnected as isSensorConnected, onDisconnect } from '../lib/bleConnection'
 import { PoseCameraSource, type CameraAngleSample, type KneeSide, type Point2D } from '../lib/cameraSource'
 import { useTranslation } from '../i18n/I18nContext'
@@ -95,6 +95,7 @@ export default function ExerciseCapturePage() {
   const sourceRef = useRef<SensorSource | null>(null)
   const samplesRef = useRef<AngleSample[]>([])
   const startTimeRef = useRef<string>('')
+  const dataSourceRef = useRef<'ble' | 'simulated'>('simulated')
 
   const cameraSourceRef = useRef<PoseCameraSource | null>(null)
   const cameraSamplesRef = useRef<CameraAngleSample[]>([])
@@ -122,14 +123,6 @@ export default function ExerciseCapturePage() {
 
   function onStart() {
     const sensorConnected = isSensorConnected()
-    // The camera is a separate, genuinely working input — it shouldn't be
-    // blocked just because the IMU sensor is unavailable. Only refuse to
-    // start when there's neither a sensor NOR a camera, since then there'd
-    // be nothing to capture at all.
-    if (!sensorConnected && !useCamera) {
-      setSensorErrorModal({ title: t('sensorError.notConnectedTitle'), message: t('sensorError.notConnectedMessage') })
-      return
-    }
 
     samplesRef.current = []
     setSampleCount(0)
@@ -140,21 +133,16 @@ export default function ExerciseCapturePage() {
     setLiveConfidence(null)
     startTimeRef.current = new Date().toISOString()
 
-    if (sensorConnected) {
-      const source = createBleSensorSource()
-      sourceRef.current = source
-      source.start(
-        (sample) => {
-          samplesRef.current.push(sample)
-          setSampleCount(samplesRef.current.length)
-        },
-        () => handleSensorError(t('sensorError.startFailedMessage')),
-      )
-    }
-    // No sensor connected but camera is on: samplesRef stays empty, so
-    // onStop() below naturally skips saving an exercise capture (no fake
-    // IMU data, nothing persisted) — this is a live camera preview/test
-    // only, not a real screening capture, until the sensor is reconnected.
+    const source = sensorConnected ? createBleSensorSource() : new SimulatedKneeExtensionSource()
+    sourceRef.current = source
+    dataSourceRef.current = sensorConnected ? 'ble' : 'simulated'
+    source.start(
+      (sample) => {
+        samplesRef.current.push(sample)
+        setSampleCount(samplesRef.current.length)
+      },
+      () => handleSensorError(t('sensorError.startFailedMessage')),
+    )
 
     if (useCamera && videoRef.current) {
       cameraSamplesRef.current = []
@@ -198,7 +186,7 @@ export default function ExerciseCapturePage() {
         startTime: startTimeRef.current,
         endTime: new Date().toISOString(),
         samples: samplesRef.current,
-        dataSource: 'ble',
+        dataSource: dataSourceRef.current,
       })
       setResult(capture)
 
@@ -226,7 +214,7 @@ export default function ExerciseCapturePage() {
       </div>
 
       <p className="card-info">
-        {isSensorConnected() ? t('kneeExtension.sensorConnected') : t('kneeExtension.sensorNotConnected')}
+        {isSensorConnected() ? t('kneeExtension.sensorConnected') : t('kneeExtension.sensorSimulated')}
       </p>
 
       {!capturing && !result && (
