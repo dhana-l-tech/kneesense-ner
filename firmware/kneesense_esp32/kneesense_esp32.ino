@@ -336,7 +336,7 @@ void setup() {
 }
 
 void loop() {
-  if (!streaming || !deviceConnected || !sensorOk) return;
+  if (!sensorOk) return;
 
   unsigned long now = micros();
   float dt = (now - lastSampleMicros) / 1000000.0;
@@ -354,6 +354,20 @@ void loop() {
   // angle visibly drifts during a long capture.
   const float ALPHA = 0.98;
   shinAngle = ALPHA * (shinAngle + (s.gyroY - gyroBiasRadS) * dt * 180.0 / PI) + (1 - ALPHA) * accelAngle;
+
+  if (!streaming || !deviceConnected) {
+    // No BLE central listening yet -- print over USB instead so the sensor
+    // can be sanity-checked (tilt the board, watch this number move) before
+    // the app is ever involved. calibrate() re-baselines this the same way
+    // either way, so running the filter continuously here is harmless.
+    static unsigned long lastPrint = 0;
+    if (millis() - lastPrint > 200) {
+      lastPrint = millis();
+      Serial.print("shinAngle = ");
+      Serial.println(shinAngle);
+    }
+    return;
+  }
 
   // 8-byte payload: uint32 millis-since-boot, float32 angle (see
   // src/lib/bleProtocol.ts — single-sensor mode dropped the second float).
